@@ -135,6 +135,15 @@ static void dmaengine_pcm_dma_complete(void *arg)
 	struct snd_pcm_substream *substream = arg;
 	struct dmaengine_pcm_runtime_data *prtd = substream_to_prtd(substream);
 
+#ifdef CONFIG_SND_SOC_ROCKCHIP_VAD
+	if (snd_pcm_vad_attached(substream) &&
+	    substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		void *buf = substream->runtime->dma_area + prtd->pos;
+
+		snd_pcm_vad_preprocess(substream, buf,
+				       substream->runtime->period_size);
+	}
+#endif
 	prtd->pos += snd_pcm_lib_period_bytes(substream);
 	if (prtd->pos >= snd_pcm_lib_buffer_bytes(substream))
 		prtd->pos = 0;
