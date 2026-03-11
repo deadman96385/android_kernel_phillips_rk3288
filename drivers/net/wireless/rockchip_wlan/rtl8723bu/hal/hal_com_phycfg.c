@@ -2328,6 +2328,55 @@ PHY_SetTxPowerIndex(
 	}
 }
 
+
+void dump_tx_power_idx_by_path_rs(void *sel, _adapter *adapter, u8 rfpath, u8 rs, u8 rs_num, u8 bw)
+{
+	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(adapter);
+	struct hal_spec_t *hal_spec = GET_HAL_SPEC(adapter);
+	u8 power_idx;
+	u8 tx_num, i,j,k;
+	u8 band = BAND_ON_2_4G;
+	u8 cch = hal_data->CurrentChannel;
+	int ch_num = CENTER_CH_2G_NUM;
+
+	//if (!HAL_SPEC_CHK_RF_PATH(hal_spec, band, rfpath))
+	//	return;
+
+	if (rs >= RATE_SECTION_NUM)
+		return;
+	tx_num = rate_section_to_tx_num(rs);
+	//if (tx_num >= hal_spec->tx_nss_num || tx_num >= hal_spec->max_tx_cnt)
+	//	return;
+
+	if (band == BAND_ON_5G && IS_CCK_RATE_SECTION(rs))
+		return;
+
+	if (IS_VHT_RATE_SECTION(rs) && !IS_HARDWARE_TYPE_JAGUAR_AND_JAGUAR2(adapter))
+		return;
+	
+
+	for (k = 1; k <= ch_num; k++) {
+		PHY_GetTxPowerIndex(adapter, rfpath, rates_by_sections[rs].rates[rs_num], bw, k);
+	}
+}
+
+void dump_tx_power_idx(void *sel, _adapter *adapter)
+{
+	u8 rs;
+
+	//dump_tx_power_idx_title(sel, adapter);
+	printk("MDC TX_POWER, %4s %9s %3s %3s %3s %4s %3s (%3s %3s) %3s\n",
+		"PATH", "RATE","BW", "CNL", "pwr", "bse","dif","byr","lmt","off");
+	//for (rs = CCK; rs <= HT_MCS0_MCS7; rs++)
+	dump_tx_power_idx_by_path_rs(sel, adapter, 0, CCK,0,CHANNEL_WIDTH_20);
+	dump_tx_power_idx_by_path_rs(sel, adapter, 0, OFDM,0,CHANNEL_WIDTH_20);
+	dump_tx_power_idx_by_path_rs(sel, adapter, 0, OFDM,7,CHANNEL_WIDTH_20);
+	dump_tx_power_idx_by_path_rs(sel, adapter, 0, HT_MCS0_MCS7,0,CHANNEL_WIDTH_20);
+	dump_tx_power_idx_by_path_rs(sel, adapter, 0, HT_MCS0_MCS7,7,CHANNEL_WIDTH_20);
+	dump_tx_power_idx_by_path_rs(sel, adapter, 0, HT_MCS0_MCS7,0,CHANNEL_WIDTH_40);
+	dump_tx_power_idx_by_path_rs(sel, adapter, 0, HT_MCS0_MCS7,7,CHANNEL_WIDTH_40);
+}
+
 bool phy_is_tx_power_limit_needed(_adapter *adapter)
 {
 	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(adapter);
@@ -2914,6 +2963,7 @@ void dump_tx_power_limit(void *sel, _adapter *adapter)
 			}
 		}
 	}
+	dump_tx_power_idx(sel, adapter);
 }
 
 int rtw_is_phy_file_readable(const char *hal_file_name)

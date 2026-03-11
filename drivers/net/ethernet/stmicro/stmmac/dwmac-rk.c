@@ -1452,6 +1452,7 @@ void __weak rk_devinfo_get_eth_mac(u8 *mac)
 {
 }
 
+#define TPV_FORCE_SET_DEFAULT_VAULE
 void rk_get_eth_addr(void *priv, unsigned char *addr)
 {
 	int ret;
@@ -1466,7 +1467,12 @@ void rk_get_eth_addr(void *priv, unsigned char *addr)
 	if (ret != 6 || is_zero_ether_addr(addr)) {
 		dev_err(dev, "%s: rk_vendor_read eth mac address failed (%d)",
 					__func__, ret);
+#ifdef TPV_FORCE_SET_DEFAULT_VAULE
+               addr[0]=0xF0; addr[1]=0xFF; addr[2]=0xFF;
+               addr[3]=addr[4]=0xFF,addr[5]=0xFF;
+#else
 		random_ether_addr(addr);
+#endif
 		dev_err(dev, "%s: generate random eth mac address: %02x:%02x:%02x:%02x:%02x:%02x",
 					__func__, addr[0], addr[1], addr[2],
 					addr[3], addr[4], addr[5]);

@@ -103,6 +103,8 @@ struct	stainfo_stats	{
 	u64	tx_pkts;
 	u64	tx_bytes;
 	u64  tx_drops;
+
+	u32 tx_fail_cnt;	/* Read & Clear, in proc_get_tx_stat() */
 };
 
 #ifndef DBG_SESSION_TRACKER

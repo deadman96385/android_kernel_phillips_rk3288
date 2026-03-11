@@ -1479,6 +1479,7 @@ func_exit:
 }
 
 extern char* rtw_initmac;
+#include <linux/rfkill-wlan.h>
 /**
  * rtw_macaddr_cfg - Decide the mac address used
  * @out: buf to store mac address decided
@@ -1502,6 +1503,19 @@ void rtw_macaddr_cfg(u8 *out, const u8 *hw_mac_addr)
 			mac[jj] = key_2char2num(rtw_initmac[kk], rtw_initmac[kk + 1]);
 
 		goto err_chk;
+	} else {
+            printk("Wifi Efuse Mac => %02x:%02x:%02x:%02x:%02x:%02x\n", out[0], out[1],
+            out[2], out[3], out[4], out[5]);
+        if (!rockchip_wifi_mac_addr(mac)) {
+            printk("=========> get mac address from flash=[%02x:%02x:%02x:%02x:%02x:%02x]\n", mac[0], mac[1],
+                mac[2], mac[3], mac[4], mac[5]);
+            _rtw_memcpy(out, mac, ETH_ALEN);
+            goto err_chk;
+        } else {
+            //  Use the mac address stored in the Efuse
+            _rtw_memcpy(mac, hw_mac_addr, ETH_ALEN);
+              goto err_chk;
+        }
 	}
 
 	/* platform specified */
