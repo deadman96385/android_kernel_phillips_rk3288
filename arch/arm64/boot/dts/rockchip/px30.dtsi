@@ -53,7 +53,7 @@
 			#cooling-cells = <2>;
 			dynamic-power-coefficient = <90>;
 			operating-points-v2 = <&cpu0_opp_table>;
-			cpu-idle-states = <&CPU_SLEEP>;
+			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
 		};
 
 		cpu1: cpu@1 {
@@ -62,7 +62,7 @@
 			reg = <0x0 0x1>;
 			enable-method = "psci";
 			operating-points-v2 = <&cpu0_opp_table>;
-			cpu-idle-states = <&CPU_SLEEP>;
+			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
 		};
 		cpu2: cpu@2 {
 			device_type = "cpu";
@@ -70,7 +70,7 @@
 			reg = <0x0 0x2>;
 			enable-method = "psci";
 			operating-points-v2 = <&cpu0_opp_table>;
-			cpu-idle-states = <&CPU_SLEEP>;
+			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
 		};
 		cpu3: cpu@3 {
 			device_type = "cpu";
@@ -78,7 +78,7 @@
 			reg = <0x0 0x3>;
 			enable-method = "psci";
 			operating-points-v2 = <&cpu0_opp_table>;
-			cpu-idle-states = <&CPU_SLEEP>;
+			cpu-idle-states = <&CPU_SLEEP &CLUSTER_SLEEP>;
 		};
 
 		idle-states {
@@ -109,6 +109,7 @@
 		opp-shared;
 
 		clocks = <&cru PLL_APLL>;
+		rockchip,avs-scale = <4>;
 		rockchip,max-volt = <1350000>;
 		rockchip,evb-irdrop = <25000>;
 		nvmem-cells = <&cpu_leakage>;
@@ -210,6 +211,7 @@
 			bus-id = <0>;
 			timer-us = <20>;
 			enable-msk = <0x40f7>;
+			status = "disabled";
 		};
 		soc-bus1 {
 			bus-id = <1>;
@@ -903,7 +905,7 @@
 					type = "passive";
 				};
 				soc_crit: soc-crit {
-					temperature = <95000>;
+					temperature = <115000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
@@ -943,7 +945,7 @@
 		resets = <&cru SRST_TSADC>;
 		reset-names = "tsadc-apb";
 		#thermal-sensor-cells = <1>;
-		rockchip,hw-tshut-temp = <100000>;
+		rockchip,hw-tshut-temp = <120000>;
 		status = "disabled";
 	};
 
@@ -967,6 +969,8 @@
 		clocks = <&cru SCLK_OTP_USR>, <&cru PCLK_OTP_NS>,
 			 <&cru PCLK_OTP_PHY>;
 		clock-names = "clk_otp", "pclk_otp", "pclk_otp_phy";
+		resets = <&cru SRST_OTP_PHY>;
+		reset-names = "otp_phy";
 
 		/* Data cells */
 		otp_id: id@7 {
