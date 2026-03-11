@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*============================================================*/
 /*Description:*/
 /*This file is for 8812/8821/8811 TXBF mechanism*/

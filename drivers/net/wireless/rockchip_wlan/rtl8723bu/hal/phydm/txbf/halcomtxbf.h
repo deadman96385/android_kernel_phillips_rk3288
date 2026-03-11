@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef __HAL_COM_TXBF_H__
 #define __HAL_COM_TXBF_H__
 
