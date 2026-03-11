@@ -705,9 +705,9 @@ static s8 gup_update_config(struct i2c_client *client)
         return -1;
     }
     
-	buf = kzalloc(file_len, GFP_KERNEL);
-	pre_buf = kzalloc(file_len, GFP_KERNEL);
-	file_config = kzalloc(chip_cfg_len + GTP_ADDR_LENGTH, GFP_KERNEL);
+    buf = (u8*)kzalloc(file_len, GFP_KERNEL);
+    pre_buf = (u8*)kzalloc(file_len, GFP_KERNEL);
+    file_config = (u8*)kzalloc(chip_cfg_len + GTP_ADDR_LENGTH, GFP_KERNEL);
     update_msg.cfg_file->f_op->llseek(update_msg.cfg_file, 0, SEEK_SET);
     
     GTP_DEBUG("[update_cfg]Read config from file.");
@@ -879,7 +879,7 @@ static u8 gup_check_update_file(struct i2c_client *client, st_fw_head* fw_head, 
     got_file_flag = 0x00;
     if (path)
     {
-        GTP_DEBUG("Update File path:%s, %d", path, strlen(path));
+        GTP_DEBUG("Update File path:%s, %ld", path, strlen(path));
         update_msg.file = filp_open(path, O_RDONLY, 0);
 
         if (IS_ERR(update_msg.file))
@@ -1267,7 +1267,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
     GTP_DEBUG("[burn_dsp_isp]step1:alloc memory");
     while(retry++ < 5)
     {
-		fw_dsp_isp = kzalloc(FW_DSP_ISP_LENGTH, GFP_KERNEL);
+        fw_dsp_isp = (u8*)kzalloc(FW_DSP_ISP_LENGTH, GFP_KERNEL);
         if(fw_dsp_isp == NULL)
         {
             continue;
@@ -1281,8 +1281,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
     if(retry >= 5)
     {
         GTP_ERROR("[burn_dsp_isp]Alloc memory fail,exit.");
-		ret = FAIL;
-		goto exit_burn_dsp_isp;
+        return FAIL;
     }
     
     //step2:load dsp isp file data
@@ -1400,7 +1399,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
     GTP_DEBUG("[burn_fw_ss51]step1:alloc memory");
     while(retry++ < 5)
     {
-		fw_ss51 = kzalloc(FW_SECTION_LENGTH, GFP_KERNEL);
+        fw_ss51 = (u8*)kzalloc(FW_SECTION_LENGTH, GFP_KERNEL);
         if(fw_ss51 == NULL)
         {
             continue;
@@ -1414,8 +1413,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
     if(retry >= 5)
     {
         GTP_ERROR("[burn_fw_ss51]Alloc memory fail,exit.");
-		ret = FAIL;
-		goto exit_burn_fw_ss51;
+        return FAIL;
     }
     
     //step2:load ss51 firmware section 1 file data
@@ -1525,7 +1523,7 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
     GTP_DEBUG("[burn_fw_dsp]step1:alloc memory");
     while(retry++ < 5)
     {
-		fw_dsp = kzalloc(FW_DSP_LENGTH, GFP_KERNEL);
+        fw_dsp = (u8*)kzalloc(FW_DSP_LENGTH, GFP_KERNEL);
         if(fw_dsp == NULL)
         {
             continue;
@@ -1539,8 +1537,7 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
     if(retry >= 5)
     {
         GTP_ERROR("[burn_fw_dsp]Alloc memory fail,exit.");
-		ret = FAIL;
-		goto exit_burn_fw_dsp;
+        return FAIL;
     }
     
     //step2:load firmware dsp
@@ -1654,7 +1651,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
     GTP_DEBUG("[burn_fw_boot]step1:Alloc memory");
     while(retry++ < 5)
     {
-		fw_boot = kzalloc(FW_BOOT_LENGTH, GFP_KERNEL);
+        fw_boot = (u8*)kzalloc(FW_BOOT_LENGTH, GFP_KERNEL);
         if(fw_boot == NULL)
         {
             continue;
@@ -1668,8 +1665,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
     if(retry >= 5)
     {
         GTP_ERROR("[burn_fw_boot]Alloc memory fail,exit.");
-		ret = FAIL;
-		goto exit_burn_fw_boot;
+        return FAIL;
     }
     
     //step2:load firmware bootloader
@@ -1787,7 +1783,7 @@ static u8 gup_burn_fw_boot_isp(struct i2c_client *client)
     GTP_DEBUG("[burn_fw_boot_isp]step1:Alloc memory");
     while(retry++ < 5)
     {
-		fw_boot_isp = kzalloc(FW_BOOT_ISP_LENGTH, GFP_KERNEL);
+        fw_boot_isp = (u8*)kzalloc(FW_BOOT_ISP_LENGTH, GFP_KERNEL);
         if(fw_boot_isp == NULL)
         {
             continue;
@@ -1801,8 +1797,7 @@ static u8 gup_burn_fw_boot_isp(struct i2c_client *client)
     if(retry >= 5)
     {
         GTP_ERROR("[burn_fw_boot_isp]Alloc memory fail,exit.");
-		ret = FAIL;
-		goto exit_burn_fw_boot_isp;
+        return FAIL;
     }
     
     //step2:load firmware bootloader
@@ -1923,7 +1918,7 @@ static u8 gup_burn_fw_link(struct i2c_client *client)
     GTP_DEBUG("[burn_fw_link]step1:Alloc memory");
     while(retry++ < 5)
     {
-		fw_link = kzalloc(FW_SECTION_LENGTH, GFP_KERNEL);
+        fw_link = (u8*)kzalloc(FW_SECTION_LENGTH, GFP_KERNEL);
         if(fw_link == NULL)
         {
             continue;
@@ -1937,8 +1932,7 @@ static u8 gup_burn_fw_link(struct i2c_client *client)
     if(retry >= 5)
     {
         GTP_ERROR("[burn_fw_link]Alloc memory fail,exit.");
-		ret = FAIL;
-		goto exit_burn_fw_link;
+        return FAIL;
     }
     
     //step2:load firmware link section 1
@@ -2088,7 +2082,7 @@ static u8 gup_burn_fw_gwake(struct i2c_client *client)
     GTP_DEBUG("[burn_fw_gwake]step1:alloc memory");
     while(retry++ < 5)
     {
-		fw_gwake = kzalloc(FW_SECTION_LENGTH, GFP_KERNEL);
+        fw_gwake = (u8*)kzalloc(FW_SECTION_LENGTH, GFP_KERNEL);
         if(fw_gwake == NULL)
         {
             continue;
@@ -2102,8 +2096,7 @@ static u8 gup_burn_fw_gwake(struct i2c_client *client)
     if(retry >= 5)
     {
         GTP_ERROR("[burn_fw_gwake]Alloc memory fail,exit.");
-		ret = FAIL;
-		goto exit_burn_fw_gwake;
+        return FAIL;
     }
     
     //step2:load app_code firmware section 1 file data
@@ -2198,7 +2191,7 @@ static u8 gup_burn_fw_finish(struct i2c_client *client)
     GTP_DEBUG("[burn_fw_finish]step1:alloc memory");
     while(retry++ < 5)
     {
-		fw_ss51 = kzalloc(FW_SECTION_LENGTH, GFP_KERNEL);
+        fw_ss51 = (u8*)kzalloc(FW_SECTION_LENGTH, GFP_KERNEL);
         if(fw_ss51 == NULL)
         {
             continue;
@@ -2212,8 +2205,7 @@ static u8 gup_burn_fw_finish(struct i2c_client *client)
     if(retry >= 5)
     {
         GTP_ERROR("[burn_fw_finish]Alloc memory fail,exit.");
-		ret = FAIL;
-		goto exit_burn_fw_finish;
+        return FAIL;
     }
     
     GTP_DEBUG("[burn_fw_finish]step2: burn ss51 first 8K.");
@@ -2831,26 +2823,24 @@ static u8 gup_clk_calibration_pin_select(s32 bCh)
 
 void gup_output_pulse(int t)
 {
-	unsigned long flags;
-	struct goodix_ts_data *ts;
+    unsigned long flags;
+    //s32 i;
+    
+    GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+    msleep(10);
+    
+    local_irq_save(flags);
 
-	ts = i2c_get_clientdata(i2c_connect_client);
+    GTP_GPIO_OUTPUT(GTP_INT_PORT, 1);
+    msleep(50);
+    GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+    msleep(t - 50);
+    GTP_GPIO_OUTPUT(GTP_INT_PORT, 1);
 
-	GTP_GPIO_OUTPUT(ts->irq_pin, 0);
-	msleep(10);
+    local_irq_restore(flags);
 
-	local_irq_save(flags);
-
-	GTP_GPIO_OUTPUT(ts->irq_pin, 1);
-	msleep(50);
-	GTP_GPIO_OUTPUT(ts->irq_pin, 0);
-	msleep(t - 50);
-	GTP_GPIO_OUTPUT(ts->irq_pin, 1);
-
-	local_irq_restore(flags);
-
-	msleep(20);
-	GTP_GPIO_OUTPUT(ts->irq_pin, 0);
+    msleep(20);
+    GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
 }
 
 static void gup_sys_clk_init(void)
@@ -2891,8 +2881,6 @@ s32 gup_clk_calibration(void)
     //unsigned long flags;
     struct goodix_ts_data *ts;
 
-	ts = i2c_get_clientdata(i2c_connect_client);
-
     buf = 0x0C; // hold ss51 and dsp
     i2c_write_bytes(i2c_connect_client, _rRW_MISCTL__SWRST_B0_, &buf, 1);
 
@@ -2913,8 +2901,10 @@ s32 gup_clk_calibration(void)
     gup_sys_clk_init();
     gup_clk_calibration_pin_select(1);//use GIO1 to do the calibration
 
-	GTP_GPIO_OUTPUT(ts->irq_pin, 0);
+    GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
  
+    ts = i2c_get_clientdata(i2c_connect_client);
+    
     for (i = INIT_CLK_DAC; i < MAX_CLK_DAC; i++)
     {
         GTP_INFO("CLK calibration DAC %d", i);
@@ -2938,25 +2928,25 @@ s32 gup_clk_calibration(void)
         }
         
     #else
-		GTP_GPIO_OUTPUT(ts->irq_pin, 0);
+        GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
         
         //local_irq_save(flags);
         do_gettimeofday(&start);
-		GTP_GPIO_OUTPUT(ts->irq_pin, 1);
+        GTP_GPIO_OUTPUT(GTP_INT_PORT, 1);
         //local_irq_restore(flags);
         
         msleep(1);
-		GTP_GPIO_OUTPUT(ts->irq_pin, 0);
+        GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
         msleep(1);
         
         //local_irq_save(flags);
         do_gettimeofday(&end);
-		GTP_GPIO_OUTPUT(ts->irq_pin, 1);
+        GTP_GPIO_OUTPUT(GTP_INT_PORT, 1);
         //local_irq_restore(flags);
         
         count = gup_clk_count_get();
         msleep(20);
-		GTP_GPIO_OUTPUT(ts->irq_pin, 0);
+        GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
         
         usec = end.tv_usec - start.tv_usec;
         sec = end.tv_sec - start.tv_sec;
@@ -2995,8 +2985,7 @@ s32 gup_clk_calibration(void)
     i2c_write_bytes(i2c_connect_client, 0x41F9, &buf, 1);
 #endif
 
-	/*GTP_GPIO_AS_INT(ts->irq_pin);*/
-	gpio_direction_input(ts->irq_pin);
+    GTP_GPIO_AS_INT(GTP_INT_PORT);
     return i;
 }
 
@@ -3088,18 +3077,17 @@ s32 gup_enter_update_mode_fl(struct i2c_client *client)
     s32 ret = -1;
     //s32 retry = 0;
     //u8 rd_buf[3];
-	struct goodix_ts_data *ts = i2c_get_clientdata(client);
-
+    
     //step1:RST output low last at least 2ms
-	GTP_GPIO_OUTPUT(ts->rst_pin, 0);
+    GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);
     msleep(2);
     
     //step2:select I2C slave addr,INT:0--0xBA;1--0x28.
-	GTP_GPIO_OUTPUT(ts->irq_pin, (client->addr == 0x14));
+    GTP_GPIO_OUTPUT(GTP_INT_PORT, (client->addr == 0x14));
     msleep(2);
     
     //step3:RST output high reset guitar
-	GTP_GPIO_OUTPUT(ts->rst_pin, 1);
+    GTP_GPIO_OUTPUT(GTP_RST_PORT, 1);
     
     msleep(5);
     
@@ -3244,17 +3232,13 @@ static s32 gup_check_and_repair(struct i2c_client *client, u16 start_addr, s32 s
         {
             cmp_len = chk_len;
         }
-		if ((FW_HEAD_LENGTH + start_index + cmp_len) > sizeof(gtp_default_FW_fl)) {
-			GTP_ERROR("Check failed, buffer overflow\n");
-			break;
-		}
         ret = i2c_read_bytes(client, cmp_addr, chk_cmp_buf, cmp_len);
         if (ret < 0)
         {
             chk_fail = 1;
             break;
         }
-		for (i = 0; i < cmp_len; i++)
+        for (i = 0; i < cmp_len; ++i)
         {
             if (chk_cmp_buf[i] != gtp_default_FW_fl[FW_HEAD_LENGTH + start_index +i])
             {
@@ -3445,12 +3429,7 @@ static s32 gup_prepare_fl_fw(char *path, st_fw_head *fw_head)
     update_msg.force_update = 0xBE;     // GT9XXF ignore the 0xBE 
     if (update_msg.fw_total_len != sizeof(gtp_default_FW_fl))
     {
-		GTP_ERROR(
-				  "Inconsistent fw size. default size: %d(%dK), file size: %d(%dK)",
-				  (unsigned int)sizeof(gtp_default_FW_fl),
-				  (unsigned int)sizeof(gtp_default_FW_fl) / 1024,
-				  update_msg.fw_total_len,
-				  update_msg.fw_total_len / 1024);
+        GTP_ERROR("Inconsistent fw size. default size: %d(%dK), file size: %d(%dK)", sizeof(gtp_default_FW_fl), sizeof(gtp_default_FW_fl)/1024, update_msg.fw_total_len, update_msg.fw_total_len/1024);
         set_fs(update_msg.old_fs);
         _CLOSE_FILE(update_msg.file);
         return FAIL;

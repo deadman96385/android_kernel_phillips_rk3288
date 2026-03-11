@@ -118,6 +118,8 @@ int get_wifi_chip_type(void)
 	type = WIFI_AP6234;
     } else if (strcmp(wifi_chip_type_string, "ap6255") == 0) {
 	type = WIFI_AP6255;
+    } else if (strcmp(wifi_chip_type_string, "ap6256") == 0) {
+	type = WIFI_AP6256;
     } else if (strcmp(wifi_chip_type_string, "ap6330") == 0) {
         type = WIFI_AP6330;
     } else if (strcmp(wifi_chip_type_string, "ap6335") == 0) {
@@ -161,6 +163,7 @@ int get_wifi_chip_type(void)
     } else {
         type = WIFI_AP6210;
     }
+	printk("wifi_chip_type_string=%s\n",wifi_chip_type_string);
     return type;
 }
 EXPORT_SYMBOL(get_wifi_chip_type);
