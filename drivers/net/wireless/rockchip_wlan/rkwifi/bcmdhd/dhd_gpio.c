@@ -139,8 +139,9 @@ static int dhd_wlan_set_carddetect(int present)
 static int dhd_wlan_get_mac_addr(unsigned char *buf)
 {
 	int err = 0;
-
+#if 1
 	printf("======== %s ========\n", __FUNCTION__);
+
 #ifdef EXAMPLE_GET_MAC
 	/* EXAMPLE code */
 	{
@@ -148,10 +149,10 @@ static int dhd_wlan_get_mac_addr(unsigned char *buf)
 		bcopy((char *)&ea_example, buf, sizeof(struct ether_addr));
 	}
 #endif /* EXAMPLE_GET_MAC */
+	err = rockchip_wifi_mac_addr(buf);
 #ifdef EXAMPLE_GET_MAC_VER2
 	/* EXAMPLE code */
 	{
-		char mac[6] = {0x00,0x11,0x22,0x33,0x44,0xFF};
 		char macpad[56]= {
 		0x00,0xaa,0x9c,0x84,0xc7,0xbc,0x9b,0xf6,
 		0x02,0x33,0xa9,0x4d,0x5c,0xb4,0x0a,0x5d,
@@ -160,12 +161,59 @@ static int dhd_wlan_get_mac_addr(unsigned char *buf)
 		0x4a,0xeb,0xf6,0xe6,0x3c,0xe7,0x5f,0xfc,
 		0x0e,0xa7,0xb3,0x0f,0x00,0xe4,0x4a,0xaf,
 		0x87,0x08,0x16,0x6d,0x3a,0xe3,0xc7,0x80};
-		bcopy(mac, buf, sizeof(mac));
 		bcopy(macpad, buf+6, sizeof(macpad));
 	}
 #endif /* EXAMPLE_GET_MAC_VER2 */
-	err = rockchip_wifi_mac_addr(buf);
+#else
+struct ether_addr ea = {{0x00, 0x11, 0x22, 0x33, 0x44, 0xFF}};
+	//OUI: 18-65-71
+	//MCAPAD:
+	char macpad1[56]= {
+		0x81,0xb7,0x6a,0xa9,0x55,0x8d,0x76,0xfd,
+		0x7a,0x90,0xb4,0x43,0x4c,0x7e,0x7e,0x81,
+		0x5f,0xb0,0x8f,0x47,0x04,0xfd,0x24,0xd8,
+		0x85,0x1c,0xc9,0x3d,0xcf,0x0f,0xc8,0x46,
+		0x3a,0xa9,0x90,0xf3,0xc8,0x4b,0xd3,0xf7,
+		0x55,0xeb,0x41,0xf1,0x6d,0x34,0x74,0xba,
+		0xe5,0xd0,0xbb,0x8c,0x09,0x46,0x80,0xe7
+	};
 
+		//OUI: 00-D2-B1
+	char macpad2[56]= {
+		0xf5,0x20,0x81,0xbe,0xdc,0x5e,0x1a,0xb2,
+		0x5f,0x41,0x50,0xcc,0x56,0x9b,0xc7,0x58,
+		0x5b,0x44,0x7a,0x94,0xb2,0x05,0xc6,0xff,
+		0x6c,0x51,0x52,0xa6,0xe1,0x44,0x94,0x44,
+		0x07,0x51,0x5e,0x23,0x41,0x59,0x61,0x18,
+		0x22,0xb7,0x9b,0x83,0xb6,0xb7,0x8f,0x6a,
+		0x2b,0x89,0x4f,0xae,0xf2,0x65,0xa2,0x5c
+	};
+
+	printf("======== %s ========\n", __FUNCTION__);
+	err = rockchip_wifi_mac_addr((char *)&ea);
+	if(err == 0){
+#if 0
+		if(ea.octet[0] != 0x18 || ea.octet[1] != 0x65 || ea.octet[2] != 0x71 ){
+			printf("%s, not tpv mac, start with %02x-%02x-%02x, treat it as no custom mac addr.\n",
+				__func__, ea.octet[0], ea.octet[1], ea.octet[2]);
+			return -1;
+		}
+		bcopy((char *)&ea, buf, sizeof(struct ether_addr));
+		bcopy(macpad, buf+6, sizeof(macpad));
+#else
+		if(ea.octet[0]==0x18 || ea.octet[1]==0x65 ||ea.octet[2]==0x71 ){
+			bcopy((char *)&ea, buf, sizeof(struct ether_addr));
+			bcopy(macpad1, buf+6, sizeof(macpad1));
+		}else if(ea.octet[0]==0x00 || ea.octet[1]==0xd2 ||ea.octet[2]==0xb1 ){
+			bcopy((char *)&ea, buf, sizeof(struct ether_addr));
+			bcopy(macpad2, buf+6, sizeof(macpad2));
+		}else{
+			printf("%s, not tpv mac, start with %02x-%02x-%02x, treat it as no custom mac addr.\n",__func__, ea.octet[0], ea.octet[1], ea.octet[2]);
+			return -1;
+		}
+#endif
+	}
+#endif
 	return err;
 }
 
@@ -255,39 +303,39 @@ int dhd_wlan_init_gpio(void)
 	gpio_wl_host_wake = -1;
 #endif
 
-	printf("%s: GPIO(WL_REG_ON) = %d\n", __FUNCTION__, gpio_wl_reg_on);
 	if (gpio_wl_reg_on >= 0) {
 		err = gpio_request(gpio_wl_reg_on, "WL_REG_ON");
 		if (err < 0) {
-			printf("%s: Faiiled to request gpio %d for WL_REG_ON\n",
+			printf("%s: gpio_request(%d) for WL_REG_ON failed\n",
 				__FUNCTION__, gpio_wl_reg_on);
 			gpio_wl_reg_on = -1;
 		}
 	}
 
 #ifdef CUSTOMER_OOB
-	printf("%s: GPIO(WL_HOST_WAKE) = %d\n", __FUNCTION__, gpio_wl_host_wake);
 	if (gpio_wl_host_wake >= 0) {
 		err = gpio_request(gpio_wl_host_wake, "bcmdhd");
 		if (err < 0) {
-			printf("%s: gpio_request failed\n", __FUNCTION__);
+			printf("%s: gpio_request(%d) for WL_HOST_WAKE failed\n",
+				__FUNCTION__, gpio_wl_host_wake);
 			return -1;
 		}
 		err = gpio_direction_input(gpio_wl_host_wake);
 		if (err < 0) {
-			printf("%s: gpio_direction_input failed\n", __FUNCTION__);
+			printf("%s: gpio_direction_input(%d) for WL_HOST_WAKE failed\n",
+				__FUNCTION__, gpio_wl_host_wake);
 			gpio_free(gpio_wl_host_wake);
 			return -1;
 		}
 		host_oob_irq = gpio_to_irq(gpio_wl_host_wake);
 		if (host_oob_irq < 0) {
-			printf("%s: gpio_to_irq failed\n", __FUNCTION__);
+			printf("%s: gpio_to_irq(%d) for WL_HOST_WAKE failed\n",
+				__FUNCTION__, gpio_wl_host_wake);
 			gpio_free(gpio_wl_host_wake);
 			return -1;
 		}
 	}
 	host_oob_irq = rockchip_wifi_get_oob_irq();
-	printf("%s: host_oob_irq: %d\n", __FUNCTION__, host_oob_irq);
 
 #ifdef HW_OOB
 	host_oob_irq_flags = IORESOURCE_IRQ | IORESOURCE_IRQ_SHAREABLE;
@@ -304,8 +352,10 @@ int dhd_wlan_init_gpio(void)
 
 	dhd_wlan_resources[0].start = dhd_wlan_resources[0].end = host_oob_irq;
 	dhd_wlan_resources[0].flags = host_oob_irq_flags;
-	printf("%s: host_oob_irq_flags=0x%x\n", __FUNCTION__, host_oob_irq_flags);
+	printf("%s: WL_HOST_WAKE=%d, oob_irq=%d, oob_irq_flags=0x%x\n", __FUNCTION__,
+		gpio_wl_host_wake, host_oob_irq, host_oob_irq_flags);
 #endif /* CUSTOMER_OOB */
+	printf("%s: WL_REG_ON=%d\n", __FUNCTION__, gpio_wl_reg_on);
 
 	return 0;
 }

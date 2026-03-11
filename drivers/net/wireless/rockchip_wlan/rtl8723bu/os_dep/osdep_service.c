@@ -1902,11 +1902,19 @@ static int readFile(struct file *fp,char *buf,int len)
 { 
 	int rlen=0, sum=0;
 	
-	if (!fp->f_op || !fp->f_op->read) 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
+	if (!(fp->f_mode & FMODE_CAN_READ))
+#else
+	if (!fp->f_op || !fp->f_op->read)
+#endif
 		return -EPERM;
 
 	while(sum<len) {
-		rlen=fp->f_op->read(fp,buf+sum,len-sum, &fp->f_pos);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
+		rlen = __vfs_read(fp, buf + sum, len - sum, &fp->f_pos);
+#else
+		rlen = fp->f_op->read(fp, buf + sum, len - sum, &fp->f_pos);
+#endif
 		if(rlen>0)
 			sum+=rlen;
 		else if(0 != rlen)
@@ -1945,7 +1953,7 @@ static int writeFile(struct file *fp,char *buf,int len)
 * @param path the path of the file to test
 * @return Linux specific error code
 */
-static int isFileReadable(char *path)
+static int isFileReadable(char *path, u32 *sz)
 { 
 	struct file *fp;
 	int ret = 0;
@@ -1961,7 +1969,15 @@ static int isFileReadable(char *path)
 		
 		if(1!=readFile(fp, &buf, 1))
 			ret = PTR_ERR(fp);
-		
+
+		if (ret == 0 && sz) {
+			#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
+			*sz = i_size_read(fp->f_path.dentry->d_inode);
+			#else
+			*sz = i_size_read(fp->f_dentry->d_inode);
+			#endif
+		}
+
 		set_fs(oldfs);
 		filp_close(fp,NULL);
 	}	
@@ -2045,12 +2061,31 @@ static int storeToFile(char *path, u8* buf, u32 sz)
 int rtw_is_file_readable(char *path)
 {
 #ifdef PLATFORM_LINUX
-	if(isFileReadable(path) == 0)
+	if (isFileReadable(path, NULL) == 0)
 		return _TRUE;
 	else
 		return _FALSE;
 #else
-	//Todo...
+	/* Todo... */
+	return _FALSE;
+#endif
+}
+
+/*
+* Test if the specifi @param path is a file and readable.
+* If readable, @param sz is got
+* @param path the path of the file to test
+* @return _TRUE or _FALSE
+*/
+int rtw_is_file_readable_with_size(char *path, u32 *sz)
+{
+#ifdef PLATFORM_LINUX
+	if (isFileReadable(path, sz) == 0)
+		return _TRUE;
+	else
+		return _FALSE;
+#else
+	/* Todo... */
 	return _FALSE;
 #endif
 }

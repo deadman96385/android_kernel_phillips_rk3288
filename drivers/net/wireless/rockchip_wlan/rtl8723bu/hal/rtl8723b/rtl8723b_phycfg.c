@@ -959,24 +959,36 @@ PHY_GetTxPowerIndex_8723B(
 {
 	PHAL_DATA_TYPE		pHalData = GET_HAL_DATA(pAdapter);
 	s8					txPower = 0, powerDiffByRate = 0, limit = 0;
+	s8 base_idx = 0, tpt_offset = 0, extra_bias = 0, by_rate = 0, limit2=0;
 	BOOLEAN				bIn24G = _FALSE;
 
-	//DBG_871X("===>%s\n", __FUNCTION__ );
+	DBG_871X("===>%s\n", __FUNCTION__ );
 	
-	txPower = (s8) PHY_GetTxPowerIndexBase( pAdapter,RFPath, Rate, BandWidth, Channel, &bIn24G );
-	powerDiffByRate = PHY_GetTxPowerByRate( pAdapter, BAND_ON_2_4G, ODM_RF_PATH_A, RF_1TX, Rate );
+    txPower = base_idx = (s8) PHY_GetTxPowerIndexBase( pAdapter,RFPath, Rate, BandWidth, Channel, &bIn24G );
+    powerDiffByRate = by_rate =PHY_GetTxPowerByRate( pAdapter, BAND_ON_2_4G, ODM_RF_PATH_A, RF_1TX, Rate );
 
-	limit = PHY_GetTxPowerLimit( pAdapter, pAdapter->registrypriv.RegPwrTblSel, (u8)(!bIn24G), pHalData->CurrentChannelBW, RFPath, Rate, pHalData->CurrentChannel);
+    if(pHalData->CurrentChannel != 0)
+    {
+		limit = PHY_GetTxPowerLimit( pAdapter, pAdapter->registrypriv.RegPwrTblSel, (u8)(!bIn24G), 
+			pHalData->CurrentChannelBW, RFPath, Rate, pHalData->CurrentChannel);
+    }
+    else
+    {
+        limit = PHY_GetTxPowerLimit( pAdapter, pAdapter->registrypriv.RegPwrTblSel, (u8)(!bIn24G), BandWidth, RFPath, Rate, Channel);
+    }
+
+	tpt_offset = PHY_GetTxPowerTrackingOffset( pAdapter, RFPath, Rate );
 
 	powerDiffByRate = powerDiffByRate > limit ? limit : powerDiffByRate;
 	txPower += powerDiffByRate;
 	
-	txPower += PHY_GetTxPowerTrackingOffset( pAdapter, RFPath, Rate );
+	txPower += tpt_offset;
 
 	if(txPower > MAX_POWER_INDEX)
 		txPower = MAX_POWER_INDEX;
 
-	//DBG_871X("Final Tx Power(RF-%c, Channel: %d) = %d(0x%X)\n", ((RFPath==0)?'A':'B'), Channel, txPower, txPower));
+    printk("MDC TX_POWER, %4c %9s %3u %3u %3u %4u %3d (%3d %3d) %3d\n",
+		rf_path_char(RFPath), MGN_RATE_STR(Rate),BandWidth, Channel, txPower, base_idx,powerDiffByRate,by_rate,limit,tpt_offset);
 	return (u8) txPower;	
 }
 

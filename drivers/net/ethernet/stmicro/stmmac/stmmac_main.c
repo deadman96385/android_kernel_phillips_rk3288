@@ -1783,6 +1783,11 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
 	return 0;
 }
 
+#define PAGE_SEL_REG		31
+#define CUS_LED_SETTING_REG	17
+#define LEDS_EN_REG	        18
+#define LEDS_FUNC_REG		19
+
 /**
  *  stmmac_open - open entry point of the driver
  *  @dev : pointer to the device structure.
@@ -1874,6 +1879,14 @@ static int stmmac_open(struct net_device *dev)
 
 	napi_enable(&priv->napi);
 	netif_start_queue(dev);
+
+	if (priv->phydev) {
+		phy_write(priv->phydev, PAGE_SEL_REG, 0x7);
+		phy_write(priv->phydev, LEDS_FUNC_REG, 0x5);
+		phy_write(priv->phydev, LEDS_EN_REG, 0x3);
+		phy_write(priv->phydev, CUS_LED_SETTING_REG, 0xff);
+		phy_write(priv->phydev, PAGE_SEL_REG, 0x0);
+	}
 
 	return 0;
 

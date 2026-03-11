@@ -35,6 +35,7 @@
 #define KXTIK_DEVID_J9_1005		0x07	 //chip id
 #define KXTIK_DEVID_J2_1009		0x09	 //chip id
 #define KXTIK_DEVID_1013        	0x11     //chip id
+#define KXTIK_DEVID_J9_1008               0xa     //chip id
 #define KXTIK_RANGE			2000000
 
 #define KXTIK_XOUT_HPF_L                (0x00)	/* 0000 0000 */
@@ -224,8 +225,15 @@ static int sensor_convert_data(struct i2c_client *client, char high_byte, char l
 		case KXTIK_DEVID_1013:
 		case KXTIK_DEVID_J9_1005:
 		case KXTIK_DEVID_J2_1009:
+		case KXTIK_DEVID_J9_1008:
 			result = (((int)high_byte << 8) | ((int)low_byte ))>>4;
-			result *= 16;
+			if (result < KXTIK_BOUNDARY) {
+				result = result* KXTIK_GRAVITY_STEP;
+			}
+			else {
+				result = ~( ((~result & (0x7fff>>(16-KXTIK_PRECISION)) ) + 1)
+					* KXTIK_GRAVITY_STEP) + 1;
+			}
 			break;
 
 		default:
@@ -246,6 +254,7 @@ static int gsensor_report_value(struct i2c_client *client, struct sensor_axis *a
 		input_report_abs(sensor->input_dev, ABS_Y, axis->y);
 		input_report_abs(sensor->input_dev, ABS_Z, axis->z);
 		input_sync(sensor->input_dev);
+		DBG("Gsensor x==%d  y==%d z==%d\n",axis->x,axis->y,axis->z);
 	}
 
 	return 0;
@@ -288,11 +297,17 @@ static int sensor_report_value(struct i2c_client *client)
 	axis.y = (pdata->orientation[3])*x + (pdata->orientation[4])*y + (pdata->orientation[5])*z;	
 	axis.z = (pdata->orientation[6])*x + (pdata->orientation[7])*y + (pdata->orientation[8])*z;
 
+	DBG( "%s: axis = %d  %d  %d \n", __func__, axis.x, axis.y, axis.z);
+
+	//Report event  only while value is changed to save some power
+	if((abs(sensor->axis.x - axis.x) > GSENSOR_MIN) || (abs(sensor->axis.y - axis.y) > GSENSOR_MIN) || (abs(sensor->axis.z - axis.z) > GSENSOR_MIN))
+	{
 	gsensor_report_value(client, &axis);
 
 	mutex_lock(&sensor->data_mutex);
 	sensor->axis = axis;
 	mutex_unlock(&sensor->data_mutex);
+	}
 
 	if((sensor->pdata->irq_enable)&& (sensor->ops->int_status_reg >= 0))	//read sensor intterupt status register
 	{
@@ -315,7 +330,7 @@ struct sensor_operate gsensor_kxtik_ops = {
 	.precision			= KXTIK_PRECISION,
 	.ctrl_reg			= KXTIK_CTRL_REG1,
 	.int_status_reg	= KXTIK_INT_REL,
-	.range			= {-32768, 32768},
+	.range				= {-KXTIK_RANGE,KXTIK_RANGE},	//range
 	.trig				= IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 	.active			= sensor_active,
 	.init				= sensor_init,

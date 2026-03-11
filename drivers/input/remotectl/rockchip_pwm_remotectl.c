@@ -19,69 +19,16 @@
 
 #include "rockchip_pwm_remotectl.h"
 
-
+//#define CHECK_PWM_REGISTERS_PER_1S
 
 /*sys/module/rk_pwm_remotectl/parameters,
 modify code_print to change the value*/
-
-static int rk_remote_print_code;
+int rk_remote_print_code = 0;
+int rk_remote_pwm_dbg_level = 0;
+int rk_remote_pwm_dbg_rc6 = 0;
 module_param_named(code_print, rk_remote_print_code, int, 0644);
-#define DBG_CODE(args...) \
-	do { \
-		if (rk_remote_print_code) { \
-			pr_info(args); \
-		} \
-	} while (0)
-
-static int rk_remote_pwm_dbg_level;
 module_param_named(dbg_level, rk_remote_pwm_dbg_level, int, 0644);
-#define DBG(args...) \
-	do { \
-		if (rk_remote_pwm_dbg_level) { \
-			pr_info(args); \
-		} \
-	} while (0)
-
-
-struct rkxx_remote_key_table {
-	int scancode;
-	int keycode;
-};
-
-struct rkxx_remotectl_button {
-	int usercode;
-	int nbuttons;
-	struct rkxx_remote_key_table key_table[MAX_NUM_KEYS];
-};
-
-struct rkxx_remotectl_drvdata {
-	void __iomem *base;
-	int state;
-	int nbuttons;
-	int result;
-	int scandata;
-	int count;
-	int keynum;
-	int maxkeybdnum;
-	int keycode;
-	int press;
-	int pre_press;
-	int irq;
-	int remote_pwm_id;
-	int handle_cpu_id;
-	int wakeup;
-	int clk_rate;
-	int support_psci;
-	unsigned long period;
-	unsigned long temp_period;
-	int pwm_freq_nstime;
-	struct input_dev *input;
-	struct timer_list timer;
-	struct tasklet_struct remote_tasklet;
-	struct wake_lock remotectl_wake_lock;
-};
-
-static struct rkxx_remotectl_button *remotectl_button;
+module_param_named(dbg_rc6, rk_remote_pwm_dbg_rc6, int, 0644);
 
 static int remotectl_keybd_num_lookup(struct rkxx_remotectl_drvdata *ddata)
 {
@@ -90,9 +37,11 @@ static int remotectl_keybd_num_lookup(struct rkxx_remotectl_drvdata *ddata)
 
 	num = ddata->maxkeybdnum;
 	for (i = 0; i < num; i++) {
-		if (remotectl_button[i].usercode == (ddata->scandata&0xFFFF)) {
-			ddata->keynum = i;
-			return 1;
+		if(remotectl_button[i].procotol == RMC_PROTOCOL_NEC){
+			if (remotectl_button[i].usercode == (ddata->scandata&0xFFFF)) {
+				ddata->keynum = i;
+				return 1;
+			}
 		}
 	}
 	return 0;
@@ -145,9 +94,26 @@ static int rk_remotectl_parse_ir_keys(struct platform_device *pdev)
 	int ret;
 	int len;
 	int boardnum;
+	int temp;
 
 	boardnum = 0;
 	for_each_child_of_node(node, child_node) {
+
+		if(0==of_property_read_u32(child_node, "rockchip,protocol_rc6",&temp)) {
+			if(temp == 1){
+				remotectl_button[boardnum].procotol = RMC_PROTOCOL_RC6;
+			}else if(temp == 0){
+				remotectl_button[boardnum].procotol = RMC_PROTOCOL_NEC;
+			}else{
+				dev_err(&pdev->dev, "Wrong rockchip,protocol_rc6 property in the DTS.\n");
+				ret = -1;
+				return ret;
+			}
+		}else{
+			dev_info(&pdev->dev, "Missing rockchip,protocol_rc6 property in the DTS, default NEC!!\n");
+			remotectl_button[boardnum].procotol = RMC_PROTOCOL_NEC;
+		}
+		DBG("keyboard %d, procotol=%d\n",boardnum,remotectl_button[boardnum].procotol);
 		if(of_property_read_u32(child_node, "rockchip,usercode",
 			 &remotectl_button[boardnum].usercode)) {
 			dev_err(&pdev->dev, "Missing usercode property in the DTS.\n");
@@ -296,14 +262,52 @@ static void rk_pwm_remotectl_timer(unsigned long _data)
 	ddata->state = RMC_PRELOAD;
 }
 
+#ifdef CHECK_PWM_REGISTERS_PER_1S
+static void rk_pwm_remotectl_debug_timer(unsigned long _data)
+{
+	struct rkxx_remotectl_drvdata *ddata;
+
+	ddata =  (struct rkxx_remotectl_drvdata *)_data;
+
+	DBG_CODE("enter\n");
+	DBG("PWM_REG_%02x=%08x\n", 0x00,readl_relaxed(ddata->base + 0x00));
+	DBG("PWM_REG_%02x=%08x\n", 0x04,readl_relaxed(ddata->base + 0x04));
+	DBG("PWM_REG_%02x=%08x\n", 0x08,readl_relaxed(ddata->base + 0x08));
+	DBG("PWM_REG_%02x=%08x\n", 0x0c,readl_relaxed(ddata->base + 0x0c));
+	DBG("PWM_REG_%02x=%08x\n", 0x10,readl_relaxed(ddata->base + 0x10));
+	DBG("PWM_REG_%02x=%08x\n", 0x14,readl_relaxed(ddata->base + 0x14));
+	DBG("PWM_REG_%02x=%08x\n", 0x18,readl_relaxed(ddata->base + 0x18));
+	DBG("PWM_REG_%02x=%08x\n", 0x1c,readl_relaxed(ddata->base + 0x1c));	
+
+	DBG("PWM_REG_%02x=%08x\n", 0x20,readl_relaxed(ddata->base + 0x20));
+	DBG("PWM_REG_%02x=%08x\n", 0x24,readl_relaxed(ddata->base + 0x24));
+	DBG("PWM_REG_%02x=%08x\n", 0x28,readl_relaxed(ddata->base + 0x28));
+	DBG("PWM_REG_%02x=%08x\n", 0x2c,readl_relaxed(ddata->base + 0x2c));
+
+	DBG("PWM_REG_%02x=%08x\n", 0x30,readl_relaxed(ddata->base + 0x30));
+	DBG("PWM_REG_%02x=%08x\n", 0x34,readl_relaxed(ddata->base + 0x34));
+	DBG("PWM_REG_%02x=%08x\n", 0x38,readl_relaxed(ddata->base + 0x38));
+	DBG("PWM_REG_%02x=%08x\n", 0x3c,readl_relaxed(ddata->base + 0x3c));
+
+	DBG("PWM_REG_%02x=%08x\n", 0x40,readl_relaxed(ddata->base + 0x40));
+	DBG("PWM_REG_%02x=%08x\n", 0x44,readl_relaxed(ddata->base + 0x44));
+
+	DBG("PWM_REG_base=%08x\n", (int)ddata->base);
+
+	mod_timer(&ddata->dbg_timer, jiffies
+				  + msecs_to_jiffies(1000));
+}
+#endif
 
 static irqreturn_t rockchip_pwm_irq(int irq, void *dev_id)
 {
 	struct rkxx_remotectl_drvdata *ddata = dev_id;
 	int val;
-	int temp_hpr;
-	int temp_lpr;
-	int temp_period;
+	unsigned temp_hpr;
+	unsigned temp_lpr;
+	unsigned temp_period;
+	unsigned h_time;
+	unsigned l_time;
 	unsigned int id = ddata->remote_pwm_id;
 
 	if (id > 3)
@@ -317,16 +321,36 @@ static irqreturn_t rockchip_pwm_irq(int irq, void *dev_id)
 		temp_lpr = readl_relaxed(ddata->base + PWM_REG_LPR);
 		DBG("lpr=%d\n", temp_lpr);
 		temp_period = ddata->pwm_freq_nstime * temp_lpr / 1000;
-		if (temp_period > RK_PWM_TIME_BIT0_MIN) {
-			ddata->period = ddata->temp_period
-			    + ddata->pwm_freq_nstime * temp_hpr / 1000;
-			tasklet_hi_schedule(&ddata->remote_tasklet);
-			ddata->temp_period = 0;
-			DBG("period+ =%ld\n", ddata->period);
-		} else {
-			ddata->temp_period += ddata->pwm_freq_nstime
-			    * (temp_hpr + temp_lpr) / 1000;
+
+		//Martin.cai@TPV for Philips RC6 IR
+		h_time = ddata->pwm_freq_nstime * temp_hpr / 1000;
+		l_time = ddata->pwm_freq_nstime * temp_lpr / 1000;
+		if(isHighStarter(h_time)){
+			DBG("IR WAVE START\n");
+			if(isRC6LowStarter(l_time)){
+				DBG("RC6 IR WAVE START\n");
+				tpv_rc6_reset(ddata);
+				ddata->protocol_state = RMC_PROTOCOL_RC6;
+			}else{
+				ddata->protocol_state = RMC_PROTOCOL_NEC;
+			}
 		}
+		DBG("protocol_state=%d\n", ddata->protocol_state);
+		if(ddata->protocol_state == RMC_PROTOCOL_RC6){
+			tpv_rc6_handler(ddata,h_time,l_time);
+		}else{
+			if (temp_period > RK_PWM_TIME_BIT0_MIN) {
+				ddata->period = ddata->temp_period
+					+ ddata->pwm_freq_nstime * temp_hpr / 1000;
+				tasklet_hi_schedule(&ddata->remote_tasklet);
+				ddata->temp_period = 0;
+				DBG("period+ =%ld\n", ddata->period);
+			} else {
+				ddata->temp_period += ddata->pwm_freq_nstime
+					* (temp_hpr + temp_lpr) / 1000;
+			}
+		} 
+		
 	}
 	writel_relaxed(PWM_CH_INT(id), ddata->base + PWM_REG_INTSTS(id));
 	if (ddata->state == RMC_PRELOAD)
@@ -515,6 +539,18 @@ static int rk_pwm_probe(struct platform_device *pdev)
 	enable_irq_wake(irq);
 	setup_timer(&ddata->timer, rk_pwm_remotectl_timer,
 		    (unsigned long)ddata);
+
+	setup_timer(&ddata->rc6.rc_timer, tpv_rc6_remotectl_timer,
+		    (unsigned long)ddata);
+
+
+#ifdef CHECK_PWM_REGISTERS_PER_1S
+	setup_timer(&ddata->dbg_timer, rk_pwm_remotectl_debug_timer,
+		    (unsigned long)ddata);
+	mod_timer(&ddata->dbg_timer, jiffies
+				  + msecs_to_jiffies(1000));
+#endif
+
 	wake_lock_init(&ddata->remotectl_wake_lock,
 		       WAKE_LOCK_SUSPEND, "rockchip_pwm_remote");
 	cpumask_clear(&cpumask);

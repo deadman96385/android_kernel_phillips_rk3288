@@ -20,14 +20,14 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-
+#define DEBUG 1
 #include <linux/backlight.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-
+#include <linux/of_gpio.h>
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_mipi_dsi.h>
@@ -38,6 +38,10 @@
 #include <linux/of_device.h>
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
+
+#include <linux/gpio.h>
+
+#define INVALID_GPIO -1
 
 struct cmd_ctrl_hdr {
 	u8 dtype;	/* data type */
@@ -113,6 +117,7 @@ struct panel_simple {
 
 	struct gpio_desc *enable_gpio;
 	struct gpio_desc *reset_gpio;
+	struct gpio_desc *cs_gpio;
 	int cmd_type;
 
 	struct gpio_desc *spi_sdi_gpio;
@@ -121,6 +126,9 @@ struct panel_simple {
 
 	struct panel_cmds *on_cmds;
 	struct panel_cmds *off_cmds;
+
+	uint lcd_det_gpio;
+	bool lcd_cs_status;
 };
 
 enum rockchip_cmd_type {
@@ -336,8 +344,15 @@ static int panel_simple_get_cmds(struct panel_simple *panel)
 	int len;
 	int err;
 
-	data = of_get_property(panel->dev->of_node, "panel-init-sequence",
-			       &len);
+	panel->lcd_cs_status=gpio_get_value(panel->lcd_det_gpio);
+	dev_dbg(panel->dev,"panel->lcd_cs_status =%d\n ",panel->lcd_cs_status);
+	if(panel->lcd_cs_status){
+		data = of_get_property(panel->dev->of_node, "panel-init-sequence-second",
+					&len);
+	}else{
+		data = of_get_property(panel->dev->of_node, "panel-init-sequence",
+					&len);
+	}
 	if (data) {
 		panel->on_cmds = devm_kzalloc(panel->dev,
 					      sizeof(*panel->on_cmds),
@@ -506,7 +521,7 @@ static int panel_simple_regulator_disable(struct drm_panel *panel)
 static int panel_simple_loader_protect(struct drm_panel *panel, bool on)
 {
 	int err;
-
+	
 	if (on) {
 		err = panel_simple_regulator_enable(panel);
 		if (err < 0) {
@@ -564,6 +579,9 @@ static int panel_simple_unprepare(struct drm_panel *panel)
 	if (p->enable_gpio)
 		gpiod_direction_output(p->enable_gpio, 0);
 
+	if (p->cs_gpio)
+		gpiod_direction_output(p->cs_gpio, 0);
+
 	panel_simple_regulator_disable(panel);
 
 	if (p->desc && p->desc->delay.unprepare)
@@ -587,9 +605,13 @@ static int panel_simple_prepare(struct drm_panel *panel)
 		dev_err(panel->dev, "failed to enable supply: %d\n", err);
 		return err;
 	}
-
-	if (p->enable_gpio)
+	if (p->cs_gpio){
+		gpiod_direction_output(p->cs_gpio, 1);
+	}
+	
+	if (p->enable_gpio){
 		gpiod_direction_output(p->enable_gpio, 1);
+	}
 
 	if (p->desc && p->desc->delay.prepare)
 		msleep(p->desc->delay.prepare);
@@ -605,7 +627,15 @@ static int panel_simple_prepare(struct drm_panel *panel)
 
 	if (p->desc && p->desc->delay.init)
 		msleep(p->desc->delay.init);
-
+	
+	if(p->lcd_det_gpio){
+		err=panel_simple_get_cmds(p);
+		if (err) {
+			dev_err(p->dev, "failed to get init cmd: %d\n", err);
+			return err;
+		}
+	}
+	
 	if (p->on_cmds) {
 		if (p->dsi)
 			err = panel_simple_dsi_send_cmds(p, p->on_cmds);
@@ -623,7 +653,7 @@ static int panel_simple_prepare(struct drm_panel *panel)
 static int panel_simple_enable(struct drm_panel *panel)
 {
 	struct panel_simple *p = to_panel_simple(panel);
-
+	
 	if (p->enabled)
 		return 0;
 
@@ -737,15 +767,28 @@ static int panel_simple_probe(struct device *dev, const struct panel_desc *desc)
 	panel->prepared = false;
 	panel->desc = of_desc;
 	panel->dev = dev;
-
-	err = panel_simple_get_cmds(panel);
-	if (err) {
-		dev_err(dev, "failed to get init cmd: %d\n", err);
-		return err;
-	}
+	
+	panel->lcd_det_gpio = of_get_named_gpio_flags(dev->of_node, "lcd-cs-gpios", 0, NULL);
+	if (panel->lcd_det_gpio < 0) {
+		dev_err(dev, "failed to request lcd_cs GPIO\n");
+		panel->lcd_det_gpio = INVALID_GPIO;
+	} else {
+	        err =devm_gpio_request_one(dev, panel->lcd_det_gpio, GPIOF_DIR_IN, "lcd_cs");
+		if (err != 0) {
+			dev_err(dev, "failed to request lcd_cs GPIO: %d\n", err);
+			return err;
+		}
+	}	
 	panel->supply = devm_regulator_get(dev, "power");
 	if (IS_ERR(panel->supply))
 		return PTR_ERR(panel->supply);
+
+	panel->cs_gpio = devm_gpiod_get_optional(dev, "cs", 0);
+	if (IS_ERR(panel->cs_gpio)) {
+		err = PTR_ERR(panel->cs_gpio);
+		dev_err(dev, "failed to request cs GPIO: %d\n", err);
+		//return err;
+	}
 
 	panel->enable_gpio = devm_gpiod_get_optional(dev, "enable", 0);
 	if (IS_ERR(panel->enable_gpio)) {
@@ -760,7 +803,7 @@ static int panel_simple_probe(struct device *dev, const struct panel_desc *desc)
 		dev_err(dev, "failed to request reset GPIO: %d\n", err);
 		return err;
 	}
-
+	
 	if (of_property_read_string(dev->of_node, "rockchip,cmd-type",
 				    &cmd_type))
 		panel->cmd_type = CMD_TYPE_DEFAULT;
@@ -820,7 +863,7 @@ static int panel_simple_probe(struct device *dev, const struct panel_desc *desc)
 	drm_panel_init(&panel->base);
 	panel->base.dev = dev;
 	panel->base.funcs = &panel_simple_funcs;
-
+	
 	err = drm_panel_add(&panel->base);
 	if (err < 0)
 		goto free_ddc;

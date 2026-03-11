@@ -2076,6 +2076,10 @@ struct rt5651_priv {
 	int dmic_en;
 	int asrc_en;
 	bool hp_mute;
+	unsigned int hp_power_gpio;
+	int hp_status;
+	unsigned int spk_power_gpio;
+	int spk_status;
 	struct clk *mclk;
 };
 

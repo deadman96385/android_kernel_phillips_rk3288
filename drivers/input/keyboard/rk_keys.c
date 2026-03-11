@@ -43,9 +43,9 @@
 #define EV_ENCALL			KEY_F4
 #define EV_MENU				KEY_F1
 
-#if 0
+#if 1
 #define key_dbg(bdata, format, arg...)		\
-	dev_info(&bdata->input->dev, format, ##arg)
+	dev_err(&bdata->input->dev, format, ##arg)
 #else
 #define key_dbg(bdata, format, arg...)
 #endif
@@ -130,10 +130,28 @@ static void keys_timer(unsigned long _data)
 
 	if (button->state != state) {
 		button->state = state;
+		//Add by Gene;20220322;Workaround for dropping non-human operation vol up key
+		if(button->type == TYPE_ADC && button->code == 115) {
+			if(pdata->result > 10) {
+				key_dbg(pdata, "%skey[%s]: report event[%d] state[%d] adc_value[%d/%d] Skipping!! \n",
+				button->type == TYPE_ADC ? "adc" : "gpio",
+				button->desc, button->code, button->state, pdata->result, button->adc_value);
+				if (state)
+					mod_timer(&button->timer, jiffies + DEBOUNCE_JIFFIES);
+				return;
+			}
+		}
+		//~Add by Gene;20220322;Workaround for dropping non-human operation vol up key
 		input_event(input, EV_KEY, button->code, button->state);
+		if(button->type == TYPE_ADC) {
+		key_dbg(pdata, "%skey[%s]: report event[%d] state[%d] adc_value[%d/%d]\n",
+			button->type == TYPE_ADC ? "adc" : "gpio",
+			button->desc, button->code, button->state, pdata->result, button->adc_value);
+		}else{
 		key_dbg(pdata, "%skey[%s]: report event[%d] state[%d]\n",
 			button->type == TYPE_ADC ? "adc" : "gpio",
 			button->desc, button->code, button->state);
+		}
 		input_event(input, EV_KEY, button->code, button->state);
 		input_sync(input);
 	}
@@ -320,6 +338,37 @@ error_ret:
 	return ret;
 }
 
+#define ATTR_SHOW_FN(name, lable) \
+static ssize_t get_key_state_##name(struct device *dev, struct device_attribute *attr, char *buf) \
+{ \
+	struct rk_keys_drvdata *pdata = dev_get_drvdata(dev); \
+	int i = 0, key_state = -1; \
+	\
+	for (i = 0; i < pdata->nbuttons; i++) { \
+		if ((pdata->button[i].type == TYPE_GPIO) && ( !strcmp(pdata->button[i].desc, lable))) { \
+			key_state = gpio_get_value(pdata->button[i].gpio); \
+			break; \
+		} \
+	} \
+	\
+	return sprintf(buf, "%d\n", key_state); \
+}
+
+ATTR_SHOW_FN(reset, "reset");
+ATTR_SHOW_FN(menu, "menu");
+
+static DEVICE_ATTR(reset_key_state, 0440, get_key_state_reset, NULL);
+static DEVICE_ATTR(menu_key_state, 0440, get_key_state_menu, NULL);
+
+static struct attribute *gpio_keys_attrs[] = {
+	&dev_attr_reset_key_state.attr,
+	&dev_attr_menu_key_state.attr,
+	NULL,
+};
+
+static struct attribute_group gpio_keys_attr_group = {
+	.attrs = gpio_keys_attrs,
+};
 static int keys_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -447,6 +496,11 @@ static int keys_probe(struct platform_device *pdev)
 				      ADC_SAMPLE_JIFFIES);
 	}
 
+	error = sysfs_create_group(&pdev->dev.kobj, &gpio_keys_attr_group);
+	if (error) {
+		dev_err(dev, "Unable to export reset/menu keys, error: %d\n", error);
+	}
+
 	return error;
 
 fail1:
@@ -466,6 +520,8 @@ static int keys_remove(struct platform_device *pdev)
 	struct rk_keys_drvdata *ddata = dev_get_drvdata(dev);
 	struct input_dev *input = ddata->input;
 	int i;
+
+	sysfs_remove_group(&pdev->dev.kobj, &gpio_keys_attr_group);
 
 	device_init_wakeup(dev, 0);
 	for (i = 0; i < ddata->nbuttons; i++)

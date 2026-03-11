@@ -29,6 +29,7 @@ struct dmaengine_mpcm_runtime_data {
 	dma_cookie_t cookies[MAX_DAIS];
 	unsigned int *channel_maps;
 	int num_chans;
+	unsigned int pos;
 };
 
 static inline struct dmaengine_mpcm_runtime_data *substream_to_prtd(
@@ -90,7 +91,22 @@ static void snd_dmaengine_mpcm_set_config_from_dai_data(
 static void dmaengine_mpcm_dma_complete(void *arg)
 {
 	struct snd_pcm_substream *substream = arg;
+#ifdef CONFIG_SND_SOC_ROCKCHIP_VAD
+	struct dmaengine_mpcm_runtime_data *prtd = substream_to_prtd(substream);
 
+	if (snd_pcm_vad_attached(substream) &&
+	    substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		void *buf = substream->runtime->dma_area + prtd->pos;
+
+		snd_pcm_vad_preprocess(substream, buf,
+				       substream->runtime->period_size);
+	}
+
+	prtd->pos += snd_pcm_lib_period_bytes(substream);
+	if (prtd->pos >= snd_pcm_lib_buffer_bytes(substream))
+		prtd->pos = 0;
+
+#endif
 	snd_pcm_period_elapsed(substream);
 }
 
@@ -102,9 +118,8 @@ static int dmaengine_mpcm_prepare_and_submit(struct snd_pcm_substream *substream
 	enum dma_transfer_direction direction;
 	unsigned long flags = DMA_CTRL_ACK;
 	unsigned int *maps = prtd->channel_maps;
-	unsigned int channels = runtime->channels;
 	int offset, buffer_bytes, period_bytes;
-	int i, pb, bb;
+	int i;
 	bool callback = false;
 
 	direction = snd_pcm_substream_to_dma_direction(substream);
@@ -112,22 +127,17 @@ static int dmaengine_mpcm_prepare_and_submit(struct snd_pcm_substream *substream
 	if (!substream->runtime->no_period_wakeup)
 		flags |= DMA_PREP_INTERRUPT;
 
+	prtd->pos = 0;
 	offset = 0;
 	period_bytes = snd_pcm_lib_period_bytes(substream);
 	buffer_bytes = snd_pcm_lib_buffer_bytes(substream);
 	for (i = 0; i < prtd->num_chans; i++) {
 		if (!prtd->chans[i])
 			continue;
-		pb = period_bytes;
-		bb = buffer_bytes;
-		if (maps[i]) {
-			pb = pb * maps[i] / channels;
-			bb = bb * maps[i] / channels;
-		}
-		pr_debug("offset: %d, pb: %d, bb: %d\n", offset, pb, bb);
 		desc = dmaengine_prep_dma_cyclic(prtd->chans[i],
 						 runtime->dma_addr + offset,
-						 bb, pb, direction, flags);
+						 buffer_bytes, period_bytes,
+						 direction, flags);
 
 		if (!desc)
 			return -ENOMEM;
@@ -481,10 +491,13 @@ int snd_dmaengine_mpcm_register(struct rk_mdais_dev *mdais)
 	struct device *child;
 	struct dmaengine_mpcm *pcm;
 	struct dma_chan *chan;
+	unsigned int *tx_maps, *rx_maps;
 	int ret, i, num;
 
 	dev = mdais->dev;
 	num = mdais->num_dais;
+	tx_maps = mdais->playback_channel_maps;
+	rx_maps = mdais->capture_channel_maps;
 	pcm = kzalloc(sizeof(*pcm), GFP_KERNEL);
 	if (!pcm)
 		return -ENOMEM;
@@ -492,15 +505,19 @@ int snd_dmaengine_mpcm_register(struct rk_mdais_dev *mdais)
 	pcm->mdais = mdais;
 	for (i = 0; i < num; i++) {
 		child = mdais->dais[i].dev;
-		chan = dma_request_slave_channel_reason(child, "tx");
-		if (IS_ERR(chan))
-			chan = NULL;
-		pcm->tx_chans[i] = chan;
+		if (tx_maps[i]) {
+			chan = dma_request_slave_channel_reason(child, "tx");
+			if (IS_ERR(chan))
+				chan = NULL;
+			pcm->tx_chans[i] = chan;
+		}
 
-		chan = dma_request_slave_channel_reason(child, "rx");
-		if (IS_ERR(chan))
-			chan = NULL;
-		pcm->rx_chans[i] = chan;
+		if (rx_maps[i]) {
+			chan = dma_request_slave_channel_reason(child, "rx");
+			if (IS_ERR(chan))
+				chan = NULL;
+			pcm->rx_chans[i] = chan;
+		}
 	}
 
 	ret = snd_soc_add_platform(dev, &pcm->platform,
