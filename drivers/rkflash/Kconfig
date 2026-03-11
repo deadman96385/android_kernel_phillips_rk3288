@@ -6,10 +6,10 @@ menuconfig RK_FLASH
 	tristate "Rockchip Flash Devices Support"
 	default n
 	help
-	  Enable rockchip flash devices support.
+	  This enables support for Rockchip Flash Devices including Nandc Slc
+	  Nand, SFC Spi Nand and SFC Spi Nor.
 
-	  rkflash driver support 3-type flash devices: NANDC NAND, SFC_NOR
-	  and SFC_NAND.
+	  They're block interface.
 
 	  Say Y when you have a board with one of them.
 
