@@ -154,7 +154,7 @@ ifeq ($(CONFIG_PLATFORM_ANDROID_X86_N70), y)
 export TopDIR := $(shell pwd)/../../../../../../kernel/drivers/net/wireless/rtl8188ee/
 endif
 
-export TopDIR ?= $(shell pwd)/drivers/net/wireless/rockchip_wlan/rtl8188eu/
+export TopDIR ?= $(src)
 
 ########### COMMON  #################################
 ifeq ($(CONFIG_GSPI_HCI), y)
@@ -1934,4 +1934,3 @@ clean:
 	rm -fr *.mod.c *.mod *.o .*.cmd *.ko *~
 	rm -fr .tmp_versions
 endif
-
