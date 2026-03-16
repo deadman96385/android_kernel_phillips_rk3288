@@ -8,65 +8,9 @@
 
 #include "flash.h"
 #include "flash_com.h"
+#include "rkflash_debug.h"
 #include "sfc.h"
 #include "sfc_nand.h"
-
-#define SFC_NAND_STRESS_TEST_EN		0
-
-#define SFC_NAND_PROG_ERASE_ERROR	-2
-#define SFC_NAND_HW_ERROR		-1
-#define SFC_NAND_ECC_ERROR		NAND_ERROR
-#define SFC_NAND_ECC_REFRESH		NAND_STS_REFRESH
-#define SFC_NAND_ECC_OK			NAND_STS_OK
-
-#define SFC_NAND_PAGE_MAX_SIZE		2112
-
-#define FEA_READ_STATUE_MASK    (0x3 << 0)
-#define FEA_STATUE_MODE1        0
-#define FEA_STATUE_MODE2        1
-#define FEA_4BIT_READ           BIT(2)
-#define FEA_4BIT_PROG           BIT(3)
-#define FEA_4BYTE_ADDR          BIT(4)
-#define FEA_4BYTE_ADDR_MODE	BIT(5)
-
-struct SFC_NAND_DEV_T {
-	u32 capacity;
-	u32 block_size;
-	u16 page_size;
-	u8 manufacturer;
-	u8 mem_type;
-	u8 read_lines;
-	u8 prog_lines;
-	u8 page_read_cmd;
-	u8 page_prog_cmd;
-};
-
-struct nand_info {
-	u32 id;
-
-	u16 sec_per_page;
-	u16 page_per_blk;
-	u16 plane_per_die;
-	u16 blk_per_plane;
-
-	u8 page_read_cmd;
-	u8 page_prog_cmd;
-	u8 read_cache_cmd_1;
-	u8 prog_cache_cmd_1;
-
-	u8 read_cache_cmd_4;
-	u8 prog_cache_cmd_4;
-	u8 block_erase_cmd;
-	u8 feature;
-
-	u8 density;  /* (1 << density) sectors*/
-	u8 max_ecc_bits;
-	u8 QE_address;
-	u8 QE_bits;
-
-	u8 spare_offs_1;
-	u8 spare_offs_2;
-};
 
 static struct nand_info spi_nand_tbl[] = {
 	/* TC58CVG0S0HxAIx */
@@ -243,7 +187,7 @@ static u32 sfc_nand_prog_page(u8 cs, u32 addr, u32 *p_data, u32 *p_spare)
 	sfctrl.d32 = 0;
 	sfctrl.b.datalines = sfc_nand_dev.prog_lines;
 	sfctrl.b.addrbits = 16;
-	ret = sfc_request(sfcmd.d32, sfctrl.d32, 0, gp_page_buf);
+	sfc_request(sfcmd.d32, sfctrl.d32, 0, gp_page_buf);
 
 	sfcmd.d32 = 0;
 	sfcmd.b.cmd = p_nand_info->page_prog_cmd;
@@ -274,9 +218,9 @@ static u32 sfc_nand_read_page(u8 cs, u32 addr, u32 *p_data, u32 *p_spare)
 	sfcmd.b.cmd = p_nand_info->page_read_cmd;
 	sfcmd.b.datasize = 0;
 	sfcmd.b.addrbits = SFC_ADDR_24BITS;
-	ret = sfc_request(sfcmd.d32, 0, addr, p_data);
+	sfc_request(sfcmd.d32, 0, addr, p_data);
 
-	ret = sfc_nand_wait_busy(&status, 1000 * 1000);
+	sfc_nand_wait_busy(&status, 1000 * 1000);
 	ecc = (status >> 4) & 0x03;
 	if (sfc_nand_dev.read_lines == DATA_LINES_X4 &&
 	    p_nand_info->QE_address == 0xFF &&

@@ -54,7 +54,6 @@ static const u32 sfnor_capacity[] = {
 	0x2000000       /* 32M-byte */
 };
 
-struct SFNOR_DEV sfnor_dev;
 struct flash_info *g_spi_flash_info;
 
 static int snor_write_en(void)
@@ -477,7 +476,7 @@ int snor_write(struct SFNOR_DEV *p_dev, u32 sec, u32 n_sec, void *p_data)
 out:
 	mutex_unlock(&p_dev->lock);
 	if (!ret)
-		ret = n_sec;
+		ret = total_sec;
 
 	return ret;
 }

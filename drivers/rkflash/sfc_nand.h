@@ -5,7 +5,24 @@
 #ifndef __SFC_NAND_H
 #define __SFC_NAND_H
 
-/* Manufactory ID */
+#define SFC_NAND_STRESS_TEST_EN		0
+
+#define SFC_NAND_PROG_ERASE_ERROR	-2
+#define SFC_NAND_HW_ERROR		-1
+#define SFC_NAND_ECC_ERROR		NAND_ERROR
+#define SFC_NAND_ECC_REFRESH		NAND_STS_REFRESH
+#define SFC_NAND_ECC_OK			NAND_STS_OK
+
+#define SFC_NAND_PAGE_MAX_SIZE		2112
+
+#define FEA_READ_STATUE_MASK    (0x3 << 0)
+#define FEA_STATUE_MODE1        0
+#define FEA_STATUE_MODE2        1
+#define FEA_4BIT_READ           BIT(2)
+#define FEA_4BIT_PROG           BIT(3)
+#define FEA_4BYTE_ADDR          BIT(4)
+#define FEA_4BYTE_ADDR_MODE	BIT(5)
+
 #define MID_WINBOND             0xEF
 #define MID_GIGADEV             0xC8
 #define MID_MICRON              0x2C

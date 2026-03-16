@@ -8,6 +8,7 @@
 #include "flash.h"
 #include "flash_com.h"
 #include "nandc.h"
+#include "rkflash_debug.h"
 
 #define FLASH_STRESS_TEST_EN		0
 
@@ -196,10 +197,10 @@ static u32 flash_prog_page(u8 cs, u32 page_addr, u32 *p_data, u32 *p_spare)
 	status = flash_read_status(cs, page_addr);
 	nandc_flash_de_cs(cs);
 	status &= 0x01;
-	if (status)
-		PRINT_I("%s addr=%x status=%x\n", __func__,
-			page_addr, status);
-
+	if (status) {
+		PRINT_NANDC_I("%s addr=%x status=%x\n",
+			      __func__, page_addr, status);
+	}
 	return status;
 }
 
@@ -214,10 +215,10 @@ static u32 flash_erase_block(u8 cs, u32 page_addr)
 	status = flash_read_status(cs, page_addr);
 	nandc_flash_de_cs(cs);
 	status &= 0x01;
-	if (status)
-		PRINT_I("%s addr=%x status=%x\n", __func__,
-			page_addr, status);
-
+	if (status) {
+		PRINT_NANDC_I("%s pageadd=%x status=%x\n",
+			      __func__, page_addr, status);
+	}
 	return status;
 }
 
