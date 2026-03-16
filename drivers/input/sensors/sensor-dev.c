@@ -135,14 +135,24 @@ static int accel_do_calibration(struct sensor_private_data *sensor)
 	int max_try_times = 20;
 	long int sum_accel[3] = {0, 0, 0};
 
+	int accel_offset_max = ACCEL_OFFSET_MAX;
+	int accel_sensitive = ACCEL_SENSITIVE;
+	
+	//Martin@TPV if range is 2000000, accel_sensitive(1g) should be 1000000 instead of 32768/2.
+	if(sensor->ops->range[1] == 2000000){
+		accel_offset_max = 200000;
+		accel_sensitive = 1000000;
+	}
+	//Martin@TPV if range is 2000000, accel_sensitive(1g) should be 1000000 instead of 32768/2 end.
+
 	mutex_lock(&sensor->operation_mutex);
 	for (i = 0; i < ACCEL_CAPTURE_TIMES; ) {
 		ret = sensor->ops->report(sensor->client);
 		if (ret < 0)
 			dev_err(&sensor->client->dev, "in %s read accel data error\n", __func__);
-		if (abs(sensor->axis.x) > ACCEL_OFFSET_MAX ||
-			abs(sensor->axis.y) > ACCEL_OFFSET_MAX ||
-			abs(abs(sensor->axis.z) - ACCEL_SENSITIVE) > ACCEL_OFFSET_MAX) {
+		if (abs(sensor->axis.x) > accel_offset_max ||
+			abs(sensor->axis.y) > accel_offset_max ||
+			abs(abs(sensor->axis.z) - accel_sensitive) > accel_offset_max) {
 			sum_accel[0] = 0;
 			sum_accel[1] = 0;
 			sum_accel[2] = 0;
@@ -169,7 +179,7 @@ static int accel_do_calibration(struct sensor_private_data *sensor)
 	sensor_cali_data.accel_offset[2] = sum_accel[2] / ACCEL_CAPTURE_TIMES;
 
 	sensor_cali_data.accel_offset[2] = sensor_cali_data.accel_offset[2] > 0
-		? sensor_cali_data.accel_offset[2] - ACCEL_SENSITIVE : sensor_cali_data.accel_offset[2] + ACCEL_SENSITIVE;
+		? sensor_cali_data.accel_offset[2] - accel_sensitive : sensor_cali_data.accel_offset[2] + accel_sensitive;
 
 	sensor_cali_data.is_accel_calibrated = 1;
 
@@ -966,6 +976,7 @@ static long compass_dev_ioctl(struct file *file,
 			  unsigned int cmd, unsigned long arg)
 {
 	struct sensor_private_data *sensor = g_sensor[SENSOR_TYPE_COMPASS];
+	struct i2c_client *client = sensor->client;
 	void __user *argp = (void __user *)arg;
 	int result = 0;
 	short flag;
@@ -1008,6 +1019,13 @@ static long compass_dev_ioctl(struct file *file,
 		break;
 	case ECS_IOCTL_APP_SET_DELAY:
 		sensor->flags.delay = flag;
+		mutex_lock(&sensor->operation_mutex);
+		result = sensor_reset_rate(client, flag);
+		if (result < 0) {
+			mutex_unlock(&sensor->operation_mutex);
+			return result;
+		}
+		mutex_unlock(&sensor->operation_mutex);
 		break;
 	case ECS_IOCTL_APP_GET_DELAY:
 		flag = sensor->flags.delay;
@@ -2068,6 +2086,7 @@ static struct of_device_id sensor_dt_ids[] = {
 	{ .compatible = "lsm330_acc" },
 	{ .compatible = "bma2xx_acc" },
 	{ .compatible = "gs_stk8baxx" },
+	{ .compatible = "gs_kxtik" },
 	/*compass*/
 	{ .compatible = "ak8975" },
 	{ .compatible = "ak8963" },

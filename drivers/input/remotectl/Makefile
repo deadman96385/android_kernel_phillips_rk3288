@@ -6,3 +6,4 @@
 # Each configuration option enables a list of files.
 
 obj-$(CONFIG_ROCKCHIP_REMOTECTL_PWM)	+= rockchip_pwm_remotectl.o
+obj-$(CONFIG_ROCKCHIP_REMOTECTL_PWM)	+= rockchip_pwm_remotectl_tpv_rc6.o
