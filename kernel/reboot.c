@@ -250,6 +250,10 @@ static void kernel_shutdown_prepare(enum system_states state)
 		(state == SYSTEM_HALT) ? SYS_HALT : SYS_POWER_OFF, NULL);
 	system_state = state;
 	usermodehelper_disable();
+	//Add by Gene@tpv;20210121; Add Power Button for Shutdown & Restart
+	pr_emerg("Power down -- waiting for unplug power adapter !!!\n");
+	while(1){};//Add by Gene@tpv; 20210120; Don't really do DC power off to avoid 10'1 tablet restart.
+	//~Add by Gene@tpv;20210121; Add Power Button for Shutdown & Restart
 	device_shutdown();
 }
 /**
