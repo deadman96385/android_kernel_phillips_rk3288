@@ -98,6 +98,9 @@
 		compatible = "operating-points-v2";
 		opp-shared;
 
+		nvmem-cells = <&cpu_leakage>;
+		nvmem-cell-names = "leakage";
+
 		opp-408000000 {
 			opp-hz = /bits/ 64 <408000000>;
 			opp-microvolt = <950000 950000 1340000>;
@@ -133,6 +136,12 @@
 			     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-affinity = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
+	};
+
+	cpuinfo {
+		compatible = "rockchip,cpuinfo";
+		nvmem-cells = <&otp_id>;
+		nvmem-cell-names = "id";
 	};
 
 	display_subsystem: display-subsystem {
@@ -632,7 +641,7 @@
 					type = "passive";
 				};
 				soc_crit: soc-crit {
-					temperature = <95000>;
+					temperature = <115000>;
 					hysteresis = <2000>;
 					type = "critical";
 				};
@@ -672,8 +681,31 @@
 		pinctrl-1 = <&tsadc_otp_out>;
 		pinctrl-2 = <&tsadc_otp_gpio>;
 		#thermal-sensor-cells = <1>;
-		rockchip,hw-tshut-temp = <100000>;
+		rockchip,hw-tshut-temp = <120000>;
 		status = "disabled";
+	};
+
+	otp: otp@ff210000 {
+		compatible = "rockchip,rk3308-otp";
+		reg = <0x0 0xff210000 0x0 0x4000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		clocks = <&cru SCLK_OTP_USR>, <&cru PCLK_OTP_NS>,
+			 <&cru PCLK_OTP_PHY>;
+		clock-names = "clk_otp", "pclk_otp", "pclk_otp_phy";
+		resets = <&cru SRST_OTP_PHY>;
+		reset-names = "otp_phy";
+
+		/* Data cells */
+		otp_id: id@7 {
+			reg = <0x07 0x10>;
+		};
+		cpu_leakage: cpu-leakage@17 {
+			reg = <0x17 0x1>;
+		};
+		logic_leakage: logic-leakage@18 {
+			reg = <0x18 0x1>;
+		};
 	};
 
 	amba {
