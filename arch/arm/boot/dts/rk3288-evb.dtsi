@@ -88,7 +88,7 @@
 			};
 
 			codec {
-				sound-dai = <&rt5640>;
+				sound-dai = <&rt5651>;
 			};
 		};
 
@@ -124,9 +124,9 @@
 	vcc_host: vcc-host-regulator {
 		compatible = "regulator-fixed";
 		enable-active-high;
-		gpio = <&gpio0 14 GPIO_ACTIVE_HIGH>;
+		//gpio = <&gpio0 14 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&host_vbus_drv>;
+		//pinctrl-0 = <&host_vbus_drv>;
 		regulator-name = "vcc_host";
 		regulator-always-on;
 		regulator-boot-on;
@@ -169,6 +169,7 @@
 	 * vcc_io directly.  Those boards won't be able to power cycle SD cards
 	 * but it shouldn't hurt to toggle this pin there anyway.
 	 */
+	/*
 	vcc_sd: sdmmc-regulator {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
@@ -179,7 +180,7 @@
 		startup-delay-us = <100000>;
 		vin-supply = <&vcc_io>;
 	};
-
+	*/
 	wireless-bluetooth {
 		compatible = "bluetooth-platdata";
 		uart_rts_gpios = <&gpio4 19 GPIO_ACTIVE_LOW>;
@@ -189,16 +190,17 @@
 		BT,reset_gpio    = <&gpio4 29 GPIO_ACTIVE_HIGH>;
 		BT,wake_gpio     = <&gpio4 26 GPIO_ACTIVE_HIGH>;
 		BT,wake_host_irq = <&gpio4 31 GPIO_ACTIVE_HIGH>;
-		status = "okay";
+		status = "disabled";
 	};
 
 	wireless-wlan {
 		compatible = "wlan-platdata";
 		rockchip,grf = <&grf>;
 		wifi_chip_type = "ap6335";
+
 		sdio_vref = <1800>;
 		WIFI,host_wake_irq = <&gpio4 30 GPIO_ACTIVE_HIGH>;
-		status = "okay";
+		status = "disabled";
 	};
 };
 
@@ -247,6 +249,7 @@
 
 &sdmmc {
 	supports-sd;
+	max-frequency = <150000000>;
 	bus-width = <4>;
 	cap-mmc-highspeed;
 	sd-uhs-sdr12;
@@ -292,18 +295,6 @@
 
 &i2c2 {
 	status = "okay";
-
-	rt5640: rt5640@1c {
-		#sound-dai-cells = <0>;
-		compatible = "realtek,rt5640";
-		reg = <0x1c>;
-		clocks = <&cru SCLK_I2S0_OUT>;
-		clock-names = "mclk";
-		interrupt-parent = <&gpio6>;
-		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&i2s0_mclk>;
-	};
 };
 
 &i2c3 {
@@ -314,13 +305,13 @@
 	status = "okay";
 	clock-frequency = <400000>;
 
-	gsl3673@40 {
+	gsl3673: gsl3673@40 {
 		compatible = "GSL,GSL3673";
 		reg = <0x40>;
 		screen_max_x = <1536>;
 		screen_max_y = <2048>;
-		irq_gpio_number = <&gpio7 6 IRQ_TYPE_LEVEL_LOW>;
-		rst_gpio_number = <&gpio7 5 GPIO_ACTIVE_HIGH>;
+		//irq_gpio_number = <&gpio7 6 IRQ_TYPE_LEVEL_LOW>;
+		//rst_gpio_number = <&gpio7 5 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 };
@@ -358,7 +349,7 @@
 };
 
 &sdio0 {
-	status = "okay";
+	status = "disabled";
 	max-frequency = <150000000>;
 
 	bus-width = <4>;
@@ -495,9 +486,9 @@
 	};
 
 	usb {
-		host_vbus_drv: host-vbus-drv {
-			rockchip,pins = <0 14 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
+		//host_vbus_drv: host-vbus-drv {
+		//	rockchip,pins = <0 14 RK_FUNC_GPIO &pcfg_pull_none>;
+		//};
 
 		pwr_3g: pwr-3g {
 			rockchip,pins = <7 8 RK_FUNC_GPIO &pcfg_pull_none>;

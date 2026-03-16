@@ -994,6 +994,7 @@
  * Due to not have the software of PWM for remotectrl.
  * We can _*HACK*_ do that as the following.
  */
+
 &pwm0 {
 	compatible = "rockchip,remotectl-pwm";
 	remote_pwm_id = <0>;
