@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 #include "mp_precomp.h"
 #include "phydm_precomp.h"
 

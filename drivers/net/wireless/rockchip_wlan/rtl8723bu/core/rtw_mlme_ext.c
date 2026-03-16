@@ -12214,12 +12214,18 @@ void rtw_delba_check(_adapter *padapter, struct sta_info *psta, u8 from_timer)
 					if (psta->recvreorder_ctrl[i].enable) {						
 						/* send a DELBA frame to the peer STA with the Reason Code field set to TIMEOUT */		
 						if (!from_timer)
+						{
 							ret = issue_del_ba_ex(padapter, psta->hwaddr, i, 39, 0, 3, 1);
+						}
 						else
-							issue_del_ba(padapter,  psta->hwaddr, i, 39, 0);							
+						{
+							issue_del_ba(padapter,  psta->hwaddr, i, 39, 0);
+						}
 						psta->recvreorder_ctrl[i].enable = _FALSE;
 						if (ret != _FAIL)
+						{
 							psta->recvreorder_ctrl[i].ampdu_size = RX_AMPDU_SIZE_INVALID;
+						}
 						rtw_reset_continual_no_rx_packet(psta, i);
 						}				
 					}

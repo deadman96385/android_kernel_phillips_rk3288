@@ -363,13 +363,13 @@ int bcmsdh_oob_intr_register(bcmsdh_info_t *bcmsdh, bcmsdh_cb_fn_t oob_irq_handl
 		SDLX_MSG(("%s: irq is already registered\n", __FUNCTION__));
 		return -EBUSY;
 	}
-	SDLX_MSG(("%s %s irq=%d flags=0x%X\n", __FUNCTION__,
 #ifdef HW_OOB
-		"HW_OOB",
+	printf("%s: HW_OOB irq=%d flags=0x%X\n", __FUNCTION__,
+		(int)bcmsdh_osinfo->oob_irq_num, (int)bcmsdh_osinfo->oob_irq_flags);
 #else
-		"SW_OOB",
+	printf("%s: SW_OOB irq=%d flags=0x%X\n", __FUNCTION__,
+		(int)bcmsdh_osinfo->oob_irq_num, (int)bcmsdh_osinfo->oob_irq_flags);
 #endif
-		(int)bcmsdh_osinfo->oob_irq_num, (int)bcmsdh_osinfo->oob_irq_flags));
 	bcmsdh_osinfo->oob_irq_handler = oob_irq_handler;
 	bcmsdh_osinfo->oob_irq_handler_context = oob_irq_handler_context;
 	bcmsdh_osinfo->oob_irq_enabled = TRUE;

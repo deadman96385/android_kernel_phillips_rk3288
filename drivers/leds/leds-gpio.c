@@ -244,6 +244,63 @@ static const struct of_device_id of_gpio_leds_match[] = {
 
 MODULE_DEVICE_TABLE(of, of_gpio_leds_match);
 
+static int led_status=0;
+static ssize_t show_led(struct device *dev, struct device_attribute  *attr,char *buf )  
+{
+
+	return sprintf(buf, "%d\n", led_status);
+
+}  
+static ssize_t store_led(struct device *dev,struct device_attribute  *attr,const char* buf, size_t count)  
+{ 
+	struct  platform_device *pdev =container_of(dev, struct  platform_device, dev);
+	struct gpio_leds_priv *priv = platform_get_drvdata(pdev);
+
+	if (!priv)
+		return count;
+
+	if(!strncmp(buf, "1", 1)){// enable the green led 
+		gpiod_set_value(priv->leds[0].gpiod,0);//Power Green
+		gpiod_set_value(priv->leds[1].gpiod,1);//Power yellow
+		led_status=1;
+	}else if(!strncmp(buf,"0",1)){// enable the yellow led 
+		gpiod_set_value(priv->leds[0].gpiod,1);//Power Green
+		gpiod_set_value(priv->leds[1].gpiod,0);//Power yellow
+		led_status=0;
+	}else if(!strncmp(buf,"2",1)){// enable the side red 
+		gpiod_set_value(priv->leds[2].gpiod,1);//Side red
+		gpiod_set_value(priv->leds[3].gpiod,0);//Side green
+		gpiod_set_value(priv->leds[4].gpiod,0);//Side blue
+		led_status=2;
+	}else if(!strncmp(buf,"3",1)){// enable the side green 
+		gpiod_set_value(priv->leds[2].gpiod,0);//Side red
+		gpiod_set_value(priv->leds[3].gpiod,1);//Side green
+		gpiod_set_value(priv->leds[4].gpiod,0);//Side blue
+		led_status=3;
+	}else if(!strncmp(buf,"4",1)){// enable the side blue 
+		gpiod_set_value(priv->leds[2].gpiod,0);//Side red
+		gpiod_set_value(priv->leds[3].gpiod,0);//Side green
+		gpiod_set_value(priv->leds[4].gpiod,1);//Side blue
+		led_status=4;
+	}else if(!strncmp(buf,"5",1)){// enable the side RGB 
+		gpiod_set_value(priv->leds[2].gpiod,1);//Side red
+		gpiod_set_value(priv->leds[3].gpiod,1);//Side green
+		gpiod_set_value(priv->leds[4].gpiod,1);//Side blue
+		led_status=5;
+	}else if (!strncmp(buf,"-1",1)){//disable all led
+		gpiod_set_value(priv->leds[0].gpiod,0);//Power Green
+		gpiod_set_value(priv->leds[1].gpiod,0);//Power yellow
+		gpiod_set_value(priv->leds[2].gpiod,0);//Side red
+		gpiod_set_value(priv->leds[3].gpiod,0);//Side green
+		gpiod_set_value(priv->leds[4].gpiod,0);//Side blue
+		led_status=-1;
+	}
+
+		
+	return count;    
+} 
+static DEVICE_ATTR(led, 0644, show_led,store_led);
+
 static int gpio_led_probe(struct platform_device *pdev)
 {
 	struct gpio_led_platform_data *pdata = dev_get_platdata(&pdev->dev);
@@ -273,6 +330,13 @@ static int gpio_led_probe(struct platform_device *pdev)
 		priv = gpio_leds_create(pdev);
 		if (IS_ERR(priv))
 			return PTR_ERR(priv);
+	}
+
+	ret = device_create_file(&pdev->dev, &dev_attr_led);
+	if (ret != 0) {
+		dev_err(&pdev->dev,
+			"Failed to create led sysfs files: %d\n", ret);
+		return ret;
 	}
 
 	platform_set_drvdata(pdev, priv);

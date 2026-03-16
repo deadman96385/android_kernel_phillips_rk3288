@@ -150,7 +150,7 @@ int rtw_wifi_spec = 0;
 
 int rtw_special_rf_path = 0; //0: 2T2R ,1: only turn on path A 1T1R
 
-char rtw_country_unspecified[] = {0xFF, 0xFF, 0x00};
+char rtw_country_unspecified[] = {'U', 'S', 0x00};
 char *rtw_country_code = rtw_country_unspecified;
 module_param(rtw_country_code, charp, 0644);
 MODULE_PARM_DESC(rtw_country_code, "The default country code (in alpha2)");
