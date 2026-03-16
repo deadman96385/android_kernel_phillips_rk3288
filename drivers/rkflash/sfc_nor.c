@@ -441,6 +441,7 @@ int snor_write(struct SFNOR_DEV *p_dev, u32 sec, u32 n_sec, void *p_data)
 	int ret = SFC_OK;
 	u32 len, blk_size, offset;
 	u8 *p_buf =  (u8 *)p_data;
+	u32 total_sec = n_sec;
 
 	if ((sec + n_sec) > p_dev->capacity)
 		return SFC_PARAM_ERR;

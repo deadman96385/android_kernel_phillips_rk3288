@@ -156,6 +156,7 @@ static void rknandc_shutdown(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 static const struct of_device_id of_rknandc_match[] = {
+	{.compatible = "rockchip,rk-nandc"},
 	{.compatible = "rockchip,nandc"},
 	{}
 };
