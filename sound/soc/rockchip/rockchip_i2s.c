@@ -51,6 +51,8 @@ struct rk_i2s_dev {
 	bool tx_start;
 	bool rx_start;
 	bool is_master_mode;
+	bool tx_always_on;
+	bool is_bit_mode;
 	const struct rk_i2s_pins *pins;
 	unsigned int bclk_fs;
 };
@@ -63,11 +65,45 @@ static int i2s_runtime_suspend(struct device *dev)
 	struct rk_i2s_dev *i2s = dev_get_drvdata(dev);
 
 	regcache_cache_only(i2s->regmap, true);
-	clk_disable_unprepare(i2s->mclk);
+	//clk_disable_unprepare(i2s->mclk);
 
 	return 0;
 }
 
+static void rockchip_snd_xfer_stop(struct rk_i2s_dev *i2s)
+ {
+ 	unsigned int val = 0;
+ 	int retry = 10;
+ //printk("xue trace rockchip_snd_xfer_stop\n");
+	i2s->tx_start = false;
+
+	regmap_update_bits(i2s->regmap, I2S_DMACR,
+			   I2S_DMACR_TDE_ENABLE, I2S_DMACR_TDE_DISABLE);
+
+	regmap_update_bits(i2s->regmap, I2S_XFER,
+			   I2S_XFER_TXS_START |
+			   I2S_XFER_RXS_START,
+			   I2S_XFER_TXS_STOP |
+			   I2S_XFER_RXS_STOP);
+
+	regmap_update_bits(i2s->regmap, I2S_CLR,
+			   I2S_CLR_TXC | I2S_CLR_RXC,
+			   I2S_CLR_TXC | I2S_CLR_RXC);
+
+	regmap_read(i2s->regmap, I2S_CLR, &val);
+
+	/* Should wait for clear operation to finish */
+	while (val) {
+		regmap_read(i2s->regmap, I2S_CLR, &val);
+		retry--;
+		if (!retry) {
+			dev_warn(i2s->dev, "fail to clear\n");
+			break;
+		}
+	}
+	dev_dbg(i2s->dev, "%s: %d: stop xfer\n",
+		__func__, __LINE__);
+}
 static int i2s_runtime_resume(struct device *dev)
 {
 	struct rk_i2s_dev *i2s = dev_get_drvdata(dev);
@@ -96,8 +132,8 @@ static inline struct rk_i2s_dev *to_info(struct snd_soc_dai *dai)
 
 static void rockchip_snd_txctrl(struct rk_i2s_dev *i2s, int on)
 {
-	unsigned int val = 0;
-	int retry = 10;
+	//unsigned int val = 0;
+	//int retry = 10;
 
 	spin_lock(&lock);
 	if (on) {
@@ -116,7 +152,7 @@ static void rockchip_snd_txctrl(struct rk_i2s_dev *i2s, int on)
 				   I2S_DMACR_TDE_ENABLE, I2S_DMACR_TDE_DISABLE);
 
 		if (!i2s->rx_start) {
-			regmap_update_bits(i2s->regmap, I2S_XFER,
+			/*regmap_update_bits(i2s->regmap, I2S_XFER,
 					   I2S_XFER_TXS_START |
 					   I2S_XFER_RXS_START,
 					   I2S_XFER_TXS_STOP |
@@ -129,7 +165,7 @@ static void rockchip_snd_txctrl(struct rk_i2s_dev *i2s, int on)
 
 			regmap_read(i2s->regmap, I2S_CLR, &val);
 
-			/* Should wait for clear operation to finish */
+			// Should wait for clear operation to finish 
 			while (val) {
 				regmap_read(i2s->regmap, I2S_CLR, &val);
 				retry--;
@@ -137,7 +173,9 @@ static void rockchip_snd_txctrl(struct rk_i2s_dev *i2s, int on)
 					dev_warn(i2s->dev, "fail to clear\n");
 					break;
 				}
-			}
+			}*/
+			if ((i2s->is_bit_mode) || (!i2s->tx_always_on))
+				rockchip_snd_xfer_stop(i2s);
 		}
 	}
 	spin_unlock(&lock);
@@ -295,6 +333,7 @@ static int rockchip_i2s_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	unsigned int val = 0;
 	unsigned int mclk_rate, bclk_rate, div_bclk, div_lrck;
+	unsigned int last_val;
 
 	if (i2s->is_master_mode) {
 		mclk_rate = clk_get_rate(i2s->mclk);
@@ -314,7 +353,8 @@ static int rockchip_i2s_hw_params(struct snd_pcm_substream *substream,
 				   I2S_CKR_TSD(div_lrck) |
 				   I2S_CKR_RSD(div_lrck));
 	}
-
+	
+	regmap_read(i2s->regmap, I2S_TXCR, &last_val);
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S8:
 		val |= I2S_TXCR_VDW(8);
@@ -354,6 +394,9 @@ static int rockchip_i2s_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+	i2s->is_bit_mode = params->flags;
+	if (i2s->tx_always_on && (val != last_val || params->flags))
+		rockchip_snd_xfer_stop(i2s);
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		regmap_update_bits(i2s->regmap, I2S_RXCR,
 				   I2S_RXCR_VDW_MASK | I2S_RXCR_CSR_MASK,
@@ -607,6 +650,8 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	i2s->tx_always_on = true;
+	i2s->is_bit_mode = false;
 	i2s->dev = &pdev->dev;
 
 	i2s->grf = syscon_regmap_lookup_by_phandle(node, "rockchip,grf");
@@ -697,8 +742,6 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
 		goto err_suspend;
 	}
 
-	if (of_property_read_bool(node, "rockchip,no-dmaengine"))
-		return ret;
 	ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
 	if (ret) {
 		dev_err(&pdev->dev, "Could not register PCM\n");
@@ -734,7 +777,8 @@ static int rockchip_i2s_remove(struct platform_device *pdev)
 static int rockchip_i2s_suspend(struct device *dev)
 {
 	struct rk_i2s_dev *i2s = dev_get_drvdata(dev);
-
+	if (i2s->tx_always_on)
+		rockchip_snd_xfer_stop(i2s);
 	regcache_mark_dirty(i2s->regmap);
 
 	return 0;
@@ -745,6 +789,8 @@ static int rockchip_i2s_resume(struct device *dev)
 	struct rk_i2s_dev *i2s = dev_get_drvdata(dev);
 	int ret;
 
+	if (i2s->tx_always_on)
+		rockchip_snd_txctrl(i2s, 1);
 	ret = pm_runtime_get_sync(dev);
 	if (ret < 0)
 		return ret;

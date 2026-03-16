@@ -25,6 +25,8 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 
 #include <linux/clk.h>
 #include "rl6231.h"
@@ -319,6 +321,66 @@ static int rt5651_asrc_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int hp_power_get(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = rt5651->hp_status;
+
+	return 0;
+}
+
+static int hp_power_put(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
+
+	rt5651->hp_status = ucontrol->value.integer.value[0];
+	if ((gpio_is_valid(rt5651->hp_power_gpio))) {
+		if (rt5651->hp_status) {
+			gpio_set_value(rt5651->hp_power_gpio, 1);
+		} else {
+			gpio_set_value(rt5651->hp_power_gpio, 0);
+		}
+	}
+
+	return 0;
+}
+
+static int spk_power_get(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = rt5651->spk_status;
+
+	return 0;
+}
+
+static int spk_power_put(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
+
+	rt5651->spk_status = ucontrol->value.integer.value[0];
+	if ((gpio_is_valid(rt5651->spk_power_gpio))) {
+		if (rt5651->spk_status) {
+			gpio_set_value(rt5651->spk_power_gpio, 1);
+		} else {
+			gpio_set_value(rt5651->spk_power_gpio, 0);
+		}
+	}
+
+	return 0;
+}
+
+
+
 static const DECLARE_TLV_DB_SCALE(out_vol_tlv, -4650, 150, 0);
 static const DECLARE_TLV_DB_SCALE(dac_vol_tlv, -65625, 375, 0);
 static const DECLARE_TLV_DB_SCALE(in_vol_tlv, -3450, 150, 0);
@@ -349,6 +411,17 @@ static SOC_ENUM_SINGLE_DECL(rt5651_if2_adc_enum, RT5651_DIG_INF_DATA,
 static const char * const rt5651_asrc_mode[] = {"Disable", "Enable"};
 
 static SOC_ENUM_SINGLE_DECL(rt5651_asrc_enum, 0, 0, rt5651_asrc_mode);
+
+static const char * const hp_power_mode[] = {"off", "on"};
+
+static const SOC_ENUM_SINGLE_DECL(hp_power_enum, 0, 0,
+		hp_power_mode);
+
+static const char * const spk_power_mode[] = {"off", "on"};
+
+static const SOC_ENUM_SINGLE_DECL(spk_power_enum, 0, 0,
+		spk_power_mode);
+
 
 static const struct snd_kcontrol_new rt5651_snd_controls[] = {
 	/* Headphone Output Volume */
@@ -403,6 +476,12 @@ static const struct snd_kcontrol_new rt5651_snd_controls[] = {
 
 	SOC_ENUM("ADC IF2 Data Switch", rt5651_if2_adc_enum),
 	SOC_ENUM("DAC IF2 Data Switch", rt5651_if2_dac_enum),
+
+	SOC_ENUM_EXT("HP POWER", hp_power_enum,
+		     hp_power_get, hp_power_put),
+
+	SOC_ENUM_EXT("SPK POWER", hp_power_enum,
+		     spk_power_get, spk_power_put),
 };
 
 /**
@@ -829,7 +908,7 @@ static int rt5651_hp_event(struct snd_soc_dapm_widget *w,
 			(RT5651_CP_FQ_192_KHZ << RT5651_CP_FQ1_SFT) |
 			(RT5651_CP_FQ_12_KHZ << RT5651_CP_FQ2_SFT) |
 			(RT5651_CP_FQ_192_KHZ << RT5651_CP_FQ3_SFT));
-
+		usleep_range(70000, 75000);
 		regmap_write(rt5651->regmap, RT5651_PR_BASE +
 			RT5651_MAMP_INT_REG2, 0x1c00);
 		regmap_update_bits(rt5651->regmap, RT5651_DEPOP_M1,
@@ -1613,13 +1692,13 @@ static int rt5651_set_dai_pll(struct snd_soc_dai *dai, int pll_id, int source,
 static int rt5651_set_bias_level(struct snd_soc_codec *codec,
 			enum snd_soc_bias_level level)
 {
-	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
+	//struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
 
 	switch (level) {
 	case SND_SOC_BIAS_PREPARE:
 		if (SND_SOC_BIAS_STANDBY == snd_soc_codec_get_bias_level(codec)) {
-			if (!IS_ERR(rt5651->mclk))
-				clk_prepare_enable(rt5651->mclk);
+			//if (!IS_ERR(rt5651->mclk))
+			//	clk_prepare_enable(rt5651->mclk);
 			snd_soc_update_bits(codec, RT5651_PWR_ANLG1,
 				RT5651_PWR_VREF1 | RT5651_PWR_MB |
 				RT5651_PWR_BG | RT5651_PWR_VREF2,
@@ -1649,8 +1728,8 @@ static int rt5651_set_bias_level(struct snd_soc_codec *codec,
 		snd_soc_write(codec, RT5651_PWR_ANLG2, 0x0000);
 		if (SND_SOC_BIAS_PREPARE ==
 				snd_soc_codec_get_bias_level(codec))
-			if (!IS_ERR(rt5651->mclk))
-				clk_disable_unprepare(rt5651->mclk);
+			//if (!IS_ERR(rt5651->mclk))
+			//	clk_disable_unprepare(rt5651->mclk);
 		break;
 
 	default:
@@ -1668,7 +1747,9 @@ static int rt5651_probe(struct snd_soc_codec *codec)
 	rt5651->mclk = devm_clk_get(codec->dev, "mclk");
 	if (PTR_ERR(rt5651->mclk) == -EPROBE_DEFER)
 		return -EPROBE_DEFER;
-
+	if (!IS_ERR(rt5651->mclk))
+		clk_prepare_enable(rt5651->mclk);
+	
 	snd_soc_update_bits(codec, RT5651_PWR_ANLG1,
 		RT5651_PWR_VREF1 | RT5651_PWR_MB |
 		RT5651_PWR_BG | RT5651_PWR_VREF2,
@@ -1799,6 +1880,7 @@ MODULE_DEVICE_TABLE(i2c, rt5651_i2c_id);
 static int rt5651_i2c_probe(struct i2c_client *i2c,
 		    const struct i2c_device_id *id)
 {
+	struct device_node *node = i2c->dev.of_node;
 	struct rt5651_platform_data *pdata = dev_get_platdata(&i2c->dev);
 	struct rt5651_priv *rt5651;
 	int ret;
@@ -1812,6 +1894,20 @@ static int rt5651_i2c_probe(struct i2c_client *i2c,
 
 	if (pdata)
 		rt5651->pdata = *pdata;
+
+	rt5651->hp_power_gpio= of_get_named_gpio(node, "hp_power", 0);
+    if ((gpio_is_valid(rt5651->hp_power_gpio))) {
+		devm_gpio_request(&i2c->dev, rt5651->hp_power_gpio, "hp_power");
+		gpio_direction_output(rt5651->hp_power_gpio, 0);
+		rt5651->hp_status = 0;
+	}
+
+	rt5651->spk_power_gpio= of_get_named_gpio(node, "spk_power", 0);
+    if ((gpio_is_valid(rt5651->spk_power_gpio))) {
+		devm_gpio_request(&i2c->dev, rt5651->spk_power_gpio, "spk_power");
+		gpio_direction_output(rt5651->spk_power_gpio, 0);
+		rt5651->spk_status= 0;
+	}
 
 	rt5651->regmap = devm_regmap_init_i2c(i2c, &rt5651_regmap);
 	if (IS_ERR(rt5651->regmap)) {

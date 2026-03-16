@@ -200,6 +200,7 @@ static int rk_hdmi_analog_probe(struct platform_device *pdev)
 
 static const struct of_device_id rockchip_sound_of_match[] = {
 	{ .compatible = "rockchip,rk3368-hdmi-analog", },
+	{ .compatible = "rockchip,rk3288-hdmi-analog", },
 	{},
 };
 
