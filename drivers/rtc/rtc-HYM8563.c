@@ -25,7 +25,8 @@
 #include "rtc-HYM8563.h"
 #include <linux/of_gpio.h>
 #include <linux/irqdomain.h>
-#define RTC_SPEED 	200 * 1000
+//#define RTC_SPEED 	200 * 1000
+#define COUNT_TIME  (60*60*1000)
 
 struct hym8563 {
 	int irq;
@@ -34,10 +35,12 @@ struct hym8563 {
 	struct rtc_device *rtc;
 	struct rtc_wkalrm alarm;
 	struct wake_lock wake_lock;
+       struct delayed_work systime_work;
+       unsigned long interval;
 };
 static struct i2c_client *gClient = NULL;
 
-static int i2c_master_reg8_send(const struct i2c_client *client, const char reg, const char *buf, int count, int scl_rate)
+static int i2c_master_reg8_send(const struct i2c_client *client, const char reg, const char *buf, int count)
 {
 	struct i2c_adapter *adap=client->adapter;
 	struct i2c_msg msg;
@@ -52,7 +55,7 @@ static int i2c_master_reg8_send(const struct i2c_client *client, const char reg,
 	msg.flags = client->flags;
 	msg.len = count + 1;
 	msg.buf = (char *)tx_buf;
-	msg.scl_rate = scl_rate;
+	//msg.scl_rate = scl_rate;
 
 	ret = i2c_transfer(adap, &msg, 1);
 	kfree(tx_buf);
@@ -60,7 +63,7 @@ static int i2c_master_reg8_send(const struct i2c_client *client, const char reg,
 
 }
 
-static int i2c_master_reg8_recv(const struct i2c_client *client, const char reg, char *buf, int count, int scl_rate)
+static int i2c_master_reg8_recv(const struct i2c_client *client, const char reg, char *buf, int count)
 {
 	struct i2c_adapter *adap=client->adapter;
 	struct i2c_msg msgs[2];
@@ -71,13 +74,13 @@ static int i2c_master_reg8_recv(const struct i2c_client *client, const char reg,
 	msgs[0].flags = client->flags;
 	msgs[0].len = 1;
 	msgs[0].buf = &reg_buf;
-	msgs[0].scl_rate = scl_rate;
+	//msgs[0].scl_rate = scl_rate;
 
 	msgs[1].addr = client->addr;
 	msgs[1].flags = client->flags | I2C_M_RD;
 	msgs[1].len = count;
 	msgs[1].buf = (char *)buf;
-	msgs[1].scl_rate = scl_rate;
+	//msgs[1].scl_rate = scl_rate;
 
 	ret = i2c_transfer(adap, msgs, 2);
 
@@ -89,14 +92,14 @@ static int i2c_master_reg8_recv(const struct i2c_client *client, const char reg,
 static int hym8563_i2c_read_regs(struct i2c_client *client, u8 reg, u8 buf[], unsigned len)
 {
 	int ret; 
-	ret = i2c_master_reg8_recv(client, reg, buf, len, RTC_SPEED);
+	ret = i2c_master_reg8_recv(client, reg, buf, len);
 	return ret; 
 }
 
 static int hym8563_i2c_set_regs(struct i2c_client *client, u8 reg, u8 const buf[], __u16 len)
 {
 	int ret; 
-	ret = i2c_master_reg8_send(client, reg, buf, (int)len, RTC_SPEED);
+	ret = i2c_master_reg8_send(client, reg, buf, (int)len);
 	return ret;
 }
 
@@ -536,6 +539,26 @@ static const struct rtc_class_ops hym8563_rtc_ops = {
 	.ioctl 		= hym8563_rtc_ioctl,
 	.proc		= hym8563_rtc_proc
 };
+static void adjust_system_timer_work(struct work_struct *work)
+{
+       struct rtc_time tm;
+       struct timespec tv = {
+               .tv_nsec = NSEC_PER_SEC >> 1,
+       };
+
+       struct hym8563 *hym8563 = container_of(work, struct hym8563, systime_work.work);
+       struct i2c_client *client = hym8563->client;
+
+       hym8563_read_datetime(client, &tm);     //read time from hym8563
+       if(((tm.tm_year < 70) | (tm.tm_year > 137 )) | (tm.tm_mon == -1) | (rtc_valid_tm(&tm) != 0)) //if the hym8563 haven't initialized
+       {
+               hym8563_set_time(client, &tm);  //initialize the hym8563
+       }
+
+       rtc_tm_to_time(&tm, &tv.tv_sec);
+       do_settimeofday(&tv);
+       schedule_delayed_work(&hym8563->systime_work, hym8563->interval);
+}
 
 static int  hym8563_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
@@ -568,6 +591,9 @@ static int  hym8563_probe(struct i2c_client *client, const struct i2c_device_id 
 	gClient = client;	
 	hym8563->client = client;
 	hym8563->alarm.enabled = 0;
+	/* 6 hours between cycles runs interval */
+	hym8563->interval = msecs_to_jiffies(6 * COUNT_TIME);
+
 	client->irq = 0;
 	mutex_init(&hym8563->mutex);
 	wake_lock_init(&hym8563->wake_lock, WAKE_LOCK_SUSPEND, "rtc_hym8563");
@@ -602,6 +628,10 @@ static int  hym8563_probe(struct i2c_client *client, const struct i2c_device_id 
 	        enable_irq_wake(hym8563->irq);
 	        device_init_wakeup(&client->dev, 1);
         }
+
+       INIT_DELAYED_WORK(&hym8563->systime_work, adjust_system_timer_work);
+       schedule_delayed_work(&hym8563->systime_work, hym8563->interval);
+
 	rtc = devm_rtc_device_register(&client->dev,
 			client->name,
                        	&hym8563_rtc_ops, THIS_MODULE);
@@ -615,6 +645,7 @@ static int  hym8563_probe(struct i2c_client *client, const struct i2c_device_id 
 	return 0;
 
 exit:
+	cancel_delayed_work(&hym8563->systime_work);
 	if (hym8563) {
 		wake_lock_destroy(&hym8563->wake_lock);
 	}
@@ -624,6 +655,9 @@ exit:
 static int  hym8563_remove(struct i2c_client *client)
 {
 	struct hym8563 *hym8563 = i2c_get_clientdata(client);
+
+	cancel_delayed_work(&hym8563->systime_work);
+	flush_scheduled_work();
 
 	wake_lock_destroy(&hym8563->wake_lock);
 
