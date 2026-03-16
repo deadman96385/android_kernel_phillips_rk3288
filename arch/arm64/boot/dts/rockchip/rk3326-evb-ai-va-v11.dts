@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Fuzhou Rockchip Electronics Co., Ltd
+ * Copyright (c) 2018 Fuzhou Rockchip Electronics Co., Ltd
  *
  * SPDX-License-Identifier: (GPL-2.0+ OR MIT)
  */
@@ -12,11 +12,11 @@
 #include <dt-bindings/sensor-dev.h>
 #include "rk3326.dtsi"
 #include "rk3326-863-cif-sensor.dtsi"
-#include "rk3326-linux.dtsi"
+#include "px30-android.dtsi"
 
 / {
-	model = "Rockchip rk3326 evb linux board";
-	compatible = "rockchip,rk3326-evb-linux-lp3-v10", "rockchip,rk3326";
+	model = "Rockchip rk3326 ai voice assistant evb v11 board";
+	compatible = "rockchip,rk3326-evb-ai-va-v11", "rockchip,rk3326";
 
 	adc-keys {
 		compatible = "adc-keys";
@@ -25,22 +25,22 @@
 		poll-interval = <100>;
 		keyup-threshold-microvolt = <1800000>;
 
-		esc-key {
-			linux,code = <KEY_ESC>;
-			label = "esc";
-			press-threshold-microvolt = <1310000>;
+		mute-key {
+			linux,code = <KEY_MUTE>;
+			label = "mute";
+			press-threshold-microvolt = <1119000>;
 		};
 
-		home-key {
-			linux,code = <KEY_HOME>;
-			label = "home";
-			press-threshold-microvolt = <624000>;
+		mode-key {
+			linux,code = <KEY_MODE>;
+			label = "mode";
+			press-threshold-microvolt = <892000>;
 		};
 
-		menu-key {
-			linux,code = <KEY_MENU>;
-			label = "menu";
-			press-threshold-microvolt = <987000>;
+		media-key {
+			linux,code = <KEY_MEDIA>;
+			label = "media";
+			press-threshold-microvolt = <616000>;
 		};
 
 		vol-down-key {
@@ -52,7 +52,7 @@
 		vol-up-key {
 			linux,code = <KEY_VOLUMEUP>;
 			label = "volume up";
-			press-threshold-microvolt = <17000>;
+			press-threshold-microvolt = <15000>;
 		};
 	};
 
@@ -137,30 +137,61 @@
 		};
 	};
 
-	rk817-sound {
+	rk809-sound {
 		compatible = "simple-audio-card";
-		simple-audio-card,format = "i2s";
-		simple-audio-card,name = "rockchip,rk817-codec";
+		simple-audio-card,name = "rockchip,rk809-codec";
 		simple-audio-card,mclk-fs = <256>;
 		simple-audio-card,widgets =
 			"Microphone", "Mic Jack",
 			"Headphone", "Headphone Jack";
 		simple-audio-card,routing =
-			"MIC_IN", "Microphone Jack",
+			"Mic Jack", "MICBIAS1",
 			"IN1P", "Mic Jack",
 			"Headphone Jack", "HPOL",
 			"Headphone Jack", "HPOR";
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&i2s1_2ch>;
+			};
+			codec {
+				sound-dai = <&rk809_codec 0>;
+			};
+		};
+		simple-audio-card,dai-link@1 {
+			format = "pdm";
+			cpu {
+				sound-dai = <&pdm>;
+			};
+			codec {
+				sound-dai = <&rk809_codec 1>;
+			};
+		};
+	};
+
+	bt-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "dsp_b";
+		simple-audio-card,bitclock-inversion = <1>;
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,name = "rockchip,bt";
 		simple-audio-card,cpu {
-			sound-dai = <&i2s1_2ch>;
+			sound-dai = <&i2s2_2ch>;
 		};
 		simple-audio-card,codec {
-			sound-dai = <&rk817_codec>;
+			sound-dai = <&bt_sco>;
 		};
+	};
+
+	bt_sco: bt-sco {
+		compatible = "delta,dfbmcs320";
+		#sound-dai-cells = <0>;
+		status = "okay";
 	};
 
 	rk_headset {
 		compatible = "rockchip_headset";
-		headset_gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
+		headset_gpio = <&gpio3 RK_PA4 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&hp_det>;
 		io-channels = <&saradc 1>;
@@ -168,8 +199,8 @@
 
 	sdio_pwrseq: sdio-pwrseq {
 		compatible = "mmc-pwrseq-simple";
-		/*clocks = <&rk817 1>;*/
-		/*clock-names = "ext_clock";*/
+		clocks = <&rk809 1>;
+		clock-names = "ext_clock";
 		pinctrl-names = "default";
 		pinctrl-0 = <&wifi_enable_h>;
 
@@ -182,25 +213,25 @@
 		reset-gpios = <&gpio0 RK_PA2 GPIO_ACTIVE_LOW>; /* GPIO3_A4 */
 	};
 
-	vccsys: vccsys {
+	vcc5v0_sys: vccsys {
 		compatible = "regulator-fixed";
-		regulator-name = "vcc3v8_sys";
+		regulator-name = "vcc5v0_sys";
 		regulator-always-on;
 		regulator-boot-on;
-		regulator-min-microvolt = <3800000>;
-		regulator-max-microvolt = <3800000>;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
 	};
 
 	wireless-wlan {
 		compatible = "wlan-platdata";
-		wifi_chip_type = "AP6210";
-		WIFI,host_wake_irq = <&gpio0 RK_PB2 GPIO_ACTIVE_HIGH>;
+		wifi_chip_type = "AP6255";
+		WIFI,host_wake_irq = <&gpio0 RK_PA5 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 
 	wireless-bluetooth {
 		compatible = "bluetooth-platdata";
-		clocks = <&rk817 1>;
+		clocks = <&rk809 1>;
 		clock-names = "ext_clock";
 		uart_rts_gpios = <&gpio1 RK_PC3 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default","rts_gpio";
@@ -208,7 +239,7 @@
 		pinctrl-1 = <&uart1_rts_gpio>;
 		BT,reset_gpio = <&gpio0 RK_PC1 GPIO_ACTIVE_HIGH>;
 		BT,wake_gpio = <&gpio0 RK_PA1 GPIO_ACTIVE_HIGH>;
-		BT,wake_host_irq = <&gpio0 RK_PB3 GPIO_ACTIVE_HIGH>;
+		BT,wake_host_irq = <&gpio0 RK_PA7 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 };
@@ -222,7 +253,28 @@
 	cpu-supply = <&vdd_arm>;
 };
 
+&dfi {
+	status = "okay";
+};
+
 &display_subsystem {
+	status = "okay";
+};
+
+&cpu0_opp_table {
+	/*
+	 * max IR-drop values on different freq condition for this board!
+	 */
+	rockchip,board-irdrop = <
+		/*MHz   MHz     uV */
+		0       815     37500
+		816     1119    50000
+		1200    1512    75000
+	>;
+};
+
+&dmc {
+	center-supply = <&vdd_logic>;
 	status = "okay";
 };
 
@@ -239,7 +291,7 @@
 		init-delay-ms = <20>;
 		enable-delay-ms = <120>;
 		disable-delay-ms = <50>;
-		unprepare-delay-ms = <20>;
+		unprepare-delay-ms = <40>;
 
 		width-mm = <68>;
 		height-mm = <121>;
@@ -323,15 +375,6 @@
 	status = "disabled";
 };
 
-&dfi {
-	status = "okay";
-};
-
-&dmc {
-	center-supply = <&vdd_logic>;
-	status = "okay";
-};
-
 &emmc {
 	bus-width = <8>;
 	cap-mmc-highspeed;
@@ -354,11 +397,11 @@
 	i2c-scl-rising-time-ns = <280>;
 	i2c-scl-falling-time-ns = <16>;
 
-	rk817: pmic@20 {
-		compatible = "rockchip,rk817";
+	rk809: pmic@20 {
+		compatible = "rockchip,rk809";
 		reg = <0x20>;
 		interrupt-parent = <&gpio0>;
-		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <10 IRQ_TYPE_LEVEL_LOW>;
 		pinctrl-names = "default", "pmic-sleep",
 				"pmic-power-off", "pmic-reset";
 		pinctrl-0 = <&pmic_int>;
@@ -373,15 +416,15 @@
 		/* 1: rst regs (default in codes), 0: rst the pmic */
 		pmic-reset-func = <1>;
 
-		vcc1-supply = <&vccsys>;
-		vcc2-supply = <&vccsys>;
-		vcc3-supply = <&vccsys>;
-		vcc4-supply = <&vccsys>;
-		vcc5-supply = <&vccsys>;
-		vcc6-supply = <&vccsys>;
-		vcc7-supply = <&vcc_3v0>;
-		vcc8-supply = <&vccsys>;
-		vcc9-supply = <&dcdc_boost>;
+		vcc1-supply = <&vcc5v0_sys>;
+		vcc2-supply = <&vcc5v0_sys>;
+		vcc3-supply = <&vcc5v0_sys>;
+		vcc4-supply = <&vcc5v0_sys>;
+		vcc5-supply = <&vcc3v3_sys>;
+		vcc6-supply = <&vcc3v3_sys>;
+		vcc7-supply = <&vcc3v3_sys>;
+		vcc8-supply = <&vcc3v3_sys>;
+		vcc9-supply = <&vcc5v0_sys>;
 
 		pwrkey {
 			status = "okay";
@@ -390,28 +433,6 @@
 		pinctrl_rk8xx: pinctrl_rk8xx {
 			gpio-controller;
 			#gpio-cells = <2>;
-
-			rk817_ts_gpio1: rk817_ts_gpio1 {
-				pins = "gpio_ts";
-				function = "pin_fun1";
-				/* output-low; */
-				/* input-enable; */
-			};
-
-			rk817_gt_gpio2: rk817_gt_gpio2 {
-				pins = "gpio_gt";
-				function = "pin_fun1";
-			};
-
-			rk817_pin_ts: rk817_pin_ts {
-				pins = "gpio_ts";
-				function = "pin_fun0";
-			};
-
-			rk817_pin_gt: rk817_pin_gt {
-				pins = "gpio_gt";
-				function = "pin_fun0";
-			};
 
 			rk817_slppin_null: rk817_slppin_null {
 				pins = "gpio_slp";
@@ -486,15 +507,15 @@
 				};
 			};
 
-			vcc2v5_ddr: LDO_REG1 {
+			vcc_1v0: LDO_REG1 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <2500000>;
-				regulator-max-microvolt = <2500000>;
-				regulator-name = "vcc2v5_ddr";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1000000>;
+				regulator-name = "vcc_1v0";
 				regulator-state-mem {
 					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <2500000>;
+					regulator-suspend-microvolt = <1000000>;
 				};
 			};
 
@@ -602,62 +623,43 @@
 				};
 			};
 
-			dcdc_boost: BOOST {
+			vcc3v3_sys: DCDC_REG5 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <4700000>;
-				regulator-max-microvolt = <5400000>;
-				regulator-name = "boost";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-name = "vcc3v3_sys";
+				regulator-state-mem {
+					regulator-on-in-suspend;
+					regulator-suspend-microvolt = <3300000>;
+				};
 			};
 
-			otg_switch: OTG_SWITCH {
+			vcc3v3_lcd: SWITCH_REG1 {
 				regulator-boot-on;
-				regulator-name = "otg_switch";
+				regulator-name = "vcc3v3_lcd";
+			};
+
+			vcc5v0_host: SWITCH_REG2 {
+				regulator-always-on;
+				regulator-boot-on;
+				regulator-name = "vcc5v0_host";
 			};
 		};
 
-		battery {
-			compatible = "rk817,battery";
-			ocv_table = <3500 3625 3685 3697 3718 3735 3748
-			3760 3774 3788 3802 3816 3834 3853
-			3877 3908 3946 3975 4018 4071 4106>;
-			design_capacity = <2500>;
-			design_qmax = <2750>;
-			bat_res = <100>;
-			sleep_enter_current = <300>;
-			sleep_exit_current = <300>;
-			sleep_filter_current = <100>;
-			power_off_thresd = <3500>;
-			zero_algorithm_vol = <3850>;
-			max_soc_offset = <60>;
-			monitor_sec = <5>;
-			sample_res = <10>;
-			virtual_power = <1>;
-		};
-
-		charger {
-			compatible = "rk817,charger";
-			min_input_voltage = <4500>;
-			max_input_current = <1500>;
-			max_chrg_current = <1300>;
-			max_chrg_voltage = <4200>;
-			chrg_term_mode = <1>;
-			chrg_finish_cur = <300>;
-			virtual_power = <0>;
-			dc_det_adc = <0>;
-			extcon = <&u2phy>;
-		};
-
-		rk817_codec: codec {
-			#sound-dai-cells = <0>;
-			compatible = "rockchip,rk817-codec";
+		rk809_codec: codec {
+			#sound-dai-cells = <1>;
+			compatible = "rockchip,rk809-codec", "rockchip,rk817-codec";
 			clocks = <&cru SCLK_I2S1_OUT>;
 			clock-names = "mclk";
 			pinctrl-names = "default";
 			pinctrl-0 = <&i2s1_2ch_mclk>;
+			pdmdata-out-enable;
+			use-ext-amplifier;
+			adc-for-loopback;
+			spk-ctl-gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_HIGH>;
 			hp-volume = <20>;
-			spk-volume = <3>;
-			status = "okay";
+			spk-volume = <20>;
 		};
 	};
 };
@@ -668,72 +670,391 @@
 	i2c-scl-rising-time-ns = <275>;
 	i2c-scl-falling-time-ns = <16>;
 
-	sensor@f {
-		status = "okay";
-		compatible = "ak8963";
-		reg = <0x0f>;
-		type = <SENSOR_TYPE_COMPASS>;
-		irq_enable = <0>;
-		poll_delay_ms = <30>;
-		layout = <1>;
-		reprobe_en = <1>;
-	};
-
 	gt1x: gt1x@14 {
 	      compatible = "goodix,gt1x";
 	      reg = <0x14>;
 	      goodix,rst-gpio = <&gpio0 RK_PB4 GPIO_ACTIVE_HIGH>;
-	      goodix,irq-gpio = <&gpio0 RK_PA5 IRQ_TYPE_LEVEL_LOW>;
+	      goodix,irq-gpio = <&gpio0 RK_PB3 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	sensor@4c {
+	is31fl3236: led-controller@3c {
+		compatible = "issi,is31fl3236";
+		reg = <0x3c>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio3 RK_PA6 GPIO_ACTIVE_HIGH>;
 		status = "okay";
-		compatible = "gs_mma7660";
-		reg = <0x4c>;
-		type = <SENSOR_TYPE_ACCEL>;
-		irq-gpio = <&gpio0 RK_PB5 IRQ_TYPE_LEVEL_LOW>;
-		irq_enable = <0>;
-		poll_delay_ms = <30>;
-		layout = <1>;
-		reprobe_en = <1>;
+
+		led1: led@1 {
+			label = "led1";
+			reg = <1>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <0>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led2: led@2 {
+			label = "led2";
+			reg = <2>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <0>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led3: led@3 {
+			label = "led3";
+			reg = <3>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led4: led@4 {
+			label = "led4";
+			reg = <4>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <100>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led5: led@5 {
+			label = "led5";
+			reg = <5>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <100>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led6: led@6 {
+			label = "led6";
+			reg = <6>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led7: led@7 {
+			label = "led7";
+			reg = <7>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <200>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led8: led@8 {
+			label = "led8";
+			reg = <8>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <200>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led9: led@9 {
+			label = "led9";
+			reg = <9>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led10: led@10 {
+			label = "led10";
+			reg = <10>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <300>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led11: led@11 {
+			label = "led11";
+			reg = <11>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <300>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led12: led@12 {
+			label = "led12";
+			reg = <12>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led13: led@13 {
+			label = "led13";
+			reg = <13>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <400>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led14: led@14 {
+			label = "led14";
+			reg = <14>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <400>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led15: led@15 {
+			label = "led15";
+			reg = <15>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led16: led@16 {
+			label = "led16";
+			reg = <16>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <500>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led17: led@17 {
+			label = "led17";
+			reg = <17>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <500>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led18: led@18 {
+			label = "led18";
+			reg = <18>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led19: led@19 {
+			label = "led19";
+			reg = <19>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <600>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led20: led@20 {
+			label = "led20";
+			reg = <20>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <600>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led21: led@21 {
+			label = "led21";
+			reg = <21>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led22: led@22 {
+			label = "led22";
+			reg = <22>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <700>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led23: led@23 {
+			label = "led23";
+			reg = <23>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <700>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led124: led@24 {
+			label = "led24";
+			reg = <24>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led25: led@25 {
+			label = "led25";
+			reg = <25>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <800>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led26: led@26 {
+			label = "led26";
+			reg = <26>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <800>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led27: led@27 {
+			label = "led27";
+			reg = <27>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led28: led@28 {
+			label = "led28";
+			reg = <28>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <900>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led29: led@29 {
+			label = "led29";
+			reg = <29>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <900>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led30: led@30 {
+			label = "led30";
+			reg = <30>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led31: led@31 {
+			label = "led31";
+			reg = <31>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <1000>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led32: led@32 {
+			label = "led32";
+			reg = <32>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <1000>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led33: led@33 {
+			label = "led33";
+			reg = <33>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
+
+		led34: led@34 {
+			label = "led34";
+			reg = <34>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <1100>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led35: led@35 {
+			label = "led35";
+			reg = <35>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "timer";
+			linux,default-trigger-delay-ms = <1100>;
+			linux,blink-delay-on-ms = <100>;
+			linux,blink-delay-off-ms = <1200>;
+		};
+
+		led36: led@36 {
+			label = "led36";
+			reg = <36>;
+			led-max-microamp = <10000>;
+			linux,default-trigger = "default-on";
+		};
 	};
+
+	ls_stk3410: light@48 {
+		compatible = "ls_stk3410";
+		status = "okay";
+		reg = <0x48>;
+		type = <SENSOR_TYPE_LIGHT>;
+		irq_enable = <0>;
+		als_threshold_high = <100>;
+		als_threshold_low = <10>;
+		als_ctrl_gain = <2>; /* 0:x1 1:x4 2:x16 3:x64 */
+		poll_delay_ms = <100>;
+	};
+
+	ps_stk3410: proximity@48 {
+		compatible = "ps_stk3410";
+		status = "okay";
+		reg = <0x48>;
+		type = <SENSOR_TYPE_PROXIMITY>;
+		//pinctrl-names = "default";
+		//pinctrl-0 = <&gpio2_c3>;
+		//irq-gpio = <&gpio0 RK_PB7 IRQ_TYPE_LEVEL_LOW>;
+		//irq_enable = <1>;
+		ps_threshold_high = <0x200>;
+		ps_threshold_low = <0x100>;
+		ps_ctrl_gain = <3>; /* 0:x1 1:x4 2:x16 3:x64 */
+		ps_led_current = <3>; /* 0:12.5mA 1:25mA 2:50mA 3:100mA */
+		poll_delay_ms = <100>;
+	};
+
 };
 
 &i2c2 {
 	status = "okay";
-	clock-frequency = <400000>;
-
-	/* These are relatively safe rise/fall times; TODO: measure */
-	i2c-scl-falling-time-ns = <50>;
-	i2c-scl-rising-time-ns = <300>;
-
-	ov5695: ov5695@36 {
-		compatible = "ovti,ov5695";
-		reg = <0x36>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&cif_clkout_m0>;
-
-		clocks = <&cru SCLK_CIF_OUT>;
-		clock-names = "xvclk";
-
-		avdd-supply = <&vcc2v8_dvp>;
-		dovdd-supply = <&vcc1v8_dvp>;
-		dvdd-supply = <&vcc1v8_dvp>;
-
-		/*reset-gpios = <&gpio2 14 GPIO_ACTIVE_HIGH>;*/
-		pwdn-gpios = <&gpio2 14 GPIO_ACTIVE_HIGH>;
-
-		port {
-			ucam_out: endpoint {
-				remote-endpoint = <&mipi_in_ucam>;
-				data-lanes = <1 2>;
-			};
-		};
-	};
 };
 
 &i2s1_2ch {
 	status = "okay";
+	#sound-dai-cells = <0>;
+	pinctrl-0 = <&i2s1_2ch_sclk
+		     &i2s1_2ch_lrck
+		     &i2s1_2ch_sdo>;
+};
+
+&i2s2_2ch {
+	status = "okay";
+	rockchip,bclk-fs = <64>;
 	#sound-dai-cells = <0>;
 };
 
@@ -773,67 +1094,36 @@
 	status = "okay";
 };
 
-&mipi_dphy_rx0 {
-	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			mipi_in_ucam: endpoint@1 {
-				reg = <1>;
-				remote-endpoint = <&ucam_out>;
-				data-lanes = <1 2>;
-			};
-		};
-
-		port@1 {
-			reg = <1>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			dphy_rx0_out: endpoint@0 {
-				reg = <0>;
-				remote-endpoint = <&isp0_mipi_in>;
-			};
-		};
-	};
-};
-
 &nandc0 {
 	status = "okay";
 };
 
-&rkisp1 {
+&pdm {
 	status = "okay";
-
-	port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		isp0_mipi_in: endpoint@0 {
-			reg = <0>;
-			remote-endpoint = <&dphy_rx0_out>;
-		};
-	};
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pdm_clk0m1
+		&pdm_clk1
+		&pdm_sdi0m1
+		&pdm_sdi1
+		&pdm_sdi2
+		&pdm_sdi3>;
 };
 
 &pinctrl {
+	pinctrl-names = "default";
+	pinctrl-0 = <&tp_int>;
+
 	headphone {
 		hp_det: hp-det {
-			rockchip,pins = <2 RK_PC6 RK_FUNC_GPIO &pcfg_pull_down>;
+			rockchip,pins = <3 RK_PA4 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 
 	pmic {
 		pmic_int: pmic_int {
 			rockchip,pins =
-				<0 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>;
+				<0 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 
 		soc_slppin_gpio: soc_slppin_gpio {
@@ -857,6 +1147,12 @@
 			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
+
+	touchscreen-int {
+		tp_int: tp-int {
+			rockchip,pins = <0 RK_PB3 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
 };
 
 &pmu_io_domains {
@@ -867,6 +1163,10 @@
 };
 
 &pwm1 {
+	status = "okay";
+};
+
+&rk_isp {
 	status = "okay";
 };
 
@@ -906,7 +1206,7 @@
 	sd-uhs-sdr104;
 	vqmmc-supply = <&vccio_sd>;
 	vmmc-supply = <&vcc_sd>;
-	status = "disabled";
+	status = "okay";
 };
 
 &sdio {
